@@ -618,6 +618,7 @@
       "Tambahkan Rani sebagai anak Ayu, lahir 1994"
     ],
     "failed": "Belum bisa menjawab. Silakan coba lagi.",
+    "interrupted": "Jawaban terputus. Silakan coba lagi.",
     "retry": "Coba lagi",
     "offTitle": "Asisten belum aktif untuk pohon ini",
     "offOwner": "Aktifkan di Pengaturan agar anggota bisa bertanya tentang keluarga.",

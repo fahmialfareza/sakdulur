@@ -618,6 +618,7 @@
       "Add Rani as Ayu's daughter, born 1994"
     ],
     "failed": "Couldn't get an answer. Please try again.",
+    "interrupted": "The answer was interrupted. Please try again.",
     "retry": "Try again",
     "offTitle": "The assistant is off for this tree",
     "offOwner": "Turn it on in Settings to let members ask questions about the family.",
