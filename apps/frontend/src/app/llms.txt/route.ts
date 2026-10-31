@@ -1,10 +1,15 @@
 import { BRAND, SITE_URL } from "@/lib/brand";
+import { guides } from "@/lib/guides-content";
 import { contactEmail } from "@/lib/legal-content";
 import { STORES } from "@/lib/stores";
 
 const STORE_NAMES = { appStore: "App Store (iPhone, iPad)", macAppStore: "Mac App Store (Mac)", googlePlay: "Google Play (Android)", microsoftStore: "Microsoft Store (Windows)", snapStore: "Snap Store (Linux)" };
 // Stores still reviewing the app have no public page yet: named, not linked, so no one is sent to a 404.
 const apps = STORES.map((s) => (s.live ? `- [${STORE_NAMES[s.id]}](${s.url})` : `- ${STORE_NAMES[s.id]}: in review, coming soon`)).join("\n");
+// Each guide in English, with its Indonesian version alongside.
+const guideLinks = guides("en")
+  .map((g, i) => `- [${g.title}](${SITE_URL}/en/guides/${g.slug}) ([${guides("id")[i].title}](${SITE_URL}/id/guides/${g.slug})): ${g.description}`)
+  .join("\n");
 
 // /llms.txt (llmstxt.org): a plain summary for AI assistants and answer engines, in both languages.
 export const dynamic = "force-static";
@@ -31,6 +36,12 @@ export function GET() {
 All free; all show the same trees as the website. Download page: ${SITE_URL}/en/download (Indonesian: ${SITE_URL}/id/download).
 
 ${apps}
+
+## Guides
+
+Practical guides on family trees, with Indonesian and Javanese specifics. Index: ${SITE_URL}/en/guides (Indonesian: ${SITE_URL}/id/guides).
+
+${guideLinks}
 
 ## Links
 

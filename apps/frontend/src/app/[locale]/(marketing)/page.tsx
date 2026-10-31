@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { StoreBadges } from "@/components/marketing/store-badges";
 import { Button } from "@/components/ui/button";
 import { BRAND, SITE_URL } from "@/lib/brand";
+import { guides } from "@/lib/guides-content";
 import { contactEmail } from "@/lib/legal-content";
 import { type LocaleParams, pageLocale } from "@/i18n/static";
 import { jsonLd, languageAlternates, localePath, pageSocial } from "@/lib/seo";
@@ -71,6 +72,7 @@ export default async function LandingPage(props: LocaleParams) {
   ];
   const steps = [t("s1"), t("s2"), t("s3")];
   const ts = await getTranslations("stores");
+  const tg = await getTranslations("guides");
   const faqs = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ q: t(`faq${n}q`), a: t(`faq${n}a`) }));
   // Structured data for search engines and AI answer engines: who runs it, what it is, and the FAQ.
   const structuredData = {
@@ -210,6 +212,27 @@ export default async function LandingPage(props: LocaleParams) {
             </Link>
           </div>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-4xl px-4 pb-16 sm:px-6" aria-labelledby="guides">
+        <div className="mb-6 text-center">
+          <h2 id="guides" className="font-display text-3xl font-semibold">
+            {tg("landingTitle")}
+          </h2>
+          <p className="mt-2 text-muted-foreground">{tg("landingBody")}</p>
+        </div>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {guides(locale).map((g) => (
+            <li key={g.slug}>
+              <Link
+                href={localePath(locale, `/guides/${g.slug}`)}
+                className="block h-full rounded-2xl border bg-card p-5 font-medium transition-colors hover:border-primary"
+              >
+                {g.title} →
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="mx-auto max-w-3xl px-4 pb-16 sm:px-6" aria-labelledby="faq">

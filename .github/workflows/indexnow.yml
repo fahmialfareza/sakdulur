@@ -1,0 +1,41 @@
+name: IndexNow
+
+# Asks Bing, Copilot and the other IndexNow engines to recrawl the public pages after they change
+# (apps/frontend/scripts/indexnow.mjs). Run it by hand after a frontend deploy that the push trigger missed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/frontend/src/app/\\[locale\\]/(marketing)/**"
+      - "apps/frontend/src/app/llms.txt/**"
+      - "apps/frontend/src/lib/guides.ts"
+      - "apps/frontend/src/lib/guides-content.ts"
+      - "apps/frontend/src/lib/legal-content.ts"
+      - "apps/frontend/src/lib/stores.ts"
+      - "apps/frontend/messages/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+
+      # The frontend deploys outside GitHub Actions: give it time to go live before asking for a recrawl.
+      - name: Wait for the deploy
+        if: github.event_name == 'push'
+        run: sleep 600
+
+      - name: Ping IndexNow
+        run: node apps/frontend/scripts/indexnow.mjs

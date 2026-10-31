@@ -97,6 +97,12 @@ Local development needs none of these: both apps fall back to `http://localhost:
   **off**, otherwise Cloudflare blocks the AI crawlers the site invites (it is on by default for some new domains).
 - After launch: add `sakdulur.com` to Google Search Console and Bing Webmaster Tools (set the verification env vars
   above), submit `https://sakdulur.com/sitemap.xml` (resubmit after URL changes), and test the landing page in Google's Rich Results Test.
+- **Guides** (`/en/guides`, `/id/guides/<slug>`): content in `apps/frontend/src/lib/guides-content.ts`, slugs in
+  `src/lib/guides.ts`. To add one, add its slug and both languages' content; the sitemap, middleware, `llms.txt`,
+  the landing page and the guides index pick it up. Each guide has Article, BreadcrumbList and FAQPage JSON-LD.
+- **IndexNow:** the key file `apps/frontend/public/<key>.txt` proves ownership; `.github/workflows/indexnow.yml`
+  sends every sitemap URL to IndexNow (Bing, Copilot, Yandex, ...) 10 minutes after a push to `main` that touches
+  public pages. After a deploy it missed: `gh workflow run IndexNow` (or `node apps/frontend/scripts/indexnow.mjs`).
 
 ## Admin dashboard
 

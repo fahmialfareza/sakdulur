@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, pickLocale } from "@/i18n/config";
 import { CLIENT_COOKIE, isAppClient } from "@/lib/app-client";
+import { GUIDE_SLUGS } from "@/lib/guides";
 import { localePath } from "@/lib/seo";
 import { SIGNED_IN_COOKIE } from "@/lib/session-hint";
 
@@ -21,7 +22,7 @@ const INTL_LOCALE_HEADER = "X-NEXT-INTL-LOCALE";
 // Public pages, prerendered per language. Their plain URLs serve either language, so shared caches must not
 // keep those (Next sends s-maxage for prerendered pages); /en/... and /id/... are fixed and stay cacheable.
 // Not no-store, which would keep them out of the back/forward cache.
-const PUBLIC_PAGES = new Set(["/", "/download", "/privacy", "/terms"]);
+const PUBLIC_PAGES = new Set(["/", "/download", "/privacy", "/terms", "/guides", ...GUIDE_SLUGS.map((s) => `/guides/${s}`)]);
 
 function backendUrl() {
   return (process.env.BACKEND_URL || "http://localhost:4000").replace(/\/+$/, "");

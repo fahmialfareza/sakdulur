@@ -455,7 +455,8 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "contact": "Contact",
-    "download": "Download"
+    "download": "Download",
+    "guides": "Guides"
   },
   "landing": {
     "badge": "Private family trees",
@@ -494,7 +495,7 @@
     "faq3q": "Can I add relatives who passed away?",
     "faq3a": "Of course. Record dates — even approximate ones like “about 1920” — places, photos and stories.",
     "faq4q": "Can I take my data with me?",
-    "faq4a": "Yes. Owners can export a tree as JSON, and everyone can download their account data or delete their account.",
+    "faq4a": "Yes. Owners can export a tree, or one branch, as an Excel spreadsheet, a GEDCOM file for other family-tree apps or a full JSON backup, and everyone can download their account data or delete their account.",
     "faq5q": "What does “Sakdulur” mean?",
     "faq5a": "“Sak dulur” is Javanese for “one family” or “all of us relatives”. The app is made for exactly that: one place where the whole family's tree lives.",
     "faq6q": "Can I use it for a trah or bani reunion?",
@@ -912,5 +913,21 @@
     "pageBody": "You're offline, and this page hasn't been opened on this device yet. Your trees, people and families are still here.",
     "retry": "Try again",
     "toTree": "Go to my tree"
+  },
+  "guides": {
+    "metaTitle": "Family tree guides: silsilah, trah, kinship terms and GEDCOM",
+    "metaDescription": "Practical guides for making a family tree: step by step, organizing a large trah or bani, Indonesian and Javanese kinship terms, and exporting with GEDCOM.",
+    "title": "Family tree guides",
+    "intro": "Practical help for building your family's tree: where to start, how to organize a large extended family, what every relative is called, and how to take your tree with you.",
+    "read": "Read the guide",
+    "updated": "Updated",
+    "contents": "Contents",
+    "faq": "Questions",
+    "ctaTitle": "Start your family tree",
+    "ctaBody": "Free and private, in the browser or as an app. Invite your family to build it with you.",
+    "cta": "Create a free tree",
+    "more": "More guides",
+    "landingTitle": "Guides",
+    "landingBody": "New to family trees? Start here."
   }
 }

@@ -57,6 +57,9 @@ export default async function MarketingLayout({
             <Link href={localePath(locale, "/download")} className="inline-block py-2 hover:text-foreground">
               {t("download")}
             </Link>
+            <Link href={localePath(locale, "/guides")} className="inline-block py-2 hover:text-foreground">
+              {t("guides")}
+            </Link>
             <Link href={localePath(locale, "/privacy")} className="inline-block py-2 hover:text-foreground">
               {t("privacy")}
             </Link>

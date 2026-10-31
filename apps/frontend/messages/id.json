@@ -455,7 +455,8 @@
     "privacy": "Privasi",
     "terms": "Ketentuan",
     "contact": "Kontak",
-    "download": "Unduh"
+    "download": "Unduh",
+    "guides": "Panduan"
   },
   "landing": {
     "badge": "Silsilah keluarga yang privat",
@@ -494,7 +495,7 @@
     "faq3q": "Bisakah menambahkan kerabat yang sudah wafat?",
     "faq3a": "Tentu. Catat tanggal — bahkan perkiraan seperti “sekitar 1920” — tempat, foto, dan kisahnya.",
     "faq4q": "Bisakah saya membawa data saya?",
-    "faq4a": "Bisa. Pemilik dapat mengekspor pohon sebagai JSON, dan setiap orang dapat mengunduh data akunnya atau menghapus akunnya.",
+    "faq4a": "Bisa. Pemilik dapat mengekspor pohon, atau satu cabang, sebagai spreadsheet Excel, file GEDCOM untuk aplikasi silsilah lain, atau cadangan JSON lengkap, dan setiap orang dapat mengunduh data akunnya atau menghapus akunnya.",
     "faq5q": "Apa arti “Sakdulur”?",
     "faq5a": "“Sak dulur” dalam bahasa Jawa berarti “satu saudara” atau “kita semua bersaudara”. Aplikasi ini dibuat untuk itu: satu tempat untuk silsilah seluruh keluarga.",
     "faq6q": "Bisakah dipakai untuk trah atau bani?",
@@ -912,5 +913,21 @@
     "pageBody": "Anda sedang offline, dan halaman ini belum pernah dibuka di perangkat ini. Pohon, orang, dan keluarga Anda tetap bisa dilihat.",
     "retry": "Coba lagi",
     "toTree": "Ke pohon saya"
+  },
+  "guides": {
+    "metaTitle": "Panduan silsilah keluarga: cara membuat, trah, istilah kekerabatan, GEDCOM",
+    "metaDescription": "Panduan praktis membuat silsilah keluarga: langkah demi langkah, menyusun silsilah trah atau bani, istilah kekerabatan Indonesia dan Jawa, dan ekspor dengan GEDCOM.",
+    "title": "Panduan silsilah keluarga",
+    "intro": "Bantuan praktis untuk menyusun silsilah keluarga Anda: dari mana memulai, cara mengatur keluarga besar, sebutan untuk setiap kerabat, dan cara membawa silsilah Anda ke mana saja.",
+    "read": "Baca panduan",
+    "updated": "Diperbarui",
+    "contents": "Daftar isi",
+    "faq": "Pertanyaan",
+    "ctaTitle": "Mulai silsilah keluarga Anda",
+    "ctaBody": "Gratis dan privat, di browser atau sebagai aplikasi. Ajak keluarga menyusunnya bersama.",
+    "cta": "Buat pohon gratis",
+    "more": "Panduan lainnya",
+    "landingTitle": "Panduan",
+    "landingBody": "Baru mulai menyusun silsilah? Mulai dari sini."
   }
 }

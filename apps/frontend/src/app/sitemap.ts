@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/brand";
+import { guides } from "@/lib/guides-content";
 import { LEGAL_UPDATED } from "@/lib/legal-content";
 import { localePath } from "@/lib/seo";
 
@@ -8,6 +9,8 @@ import { localePath } from "@/lib/seo";
 const PAGES: { path: string; priority: number; changeFrequency: "monthly" | "yearly"; lastModified?: string }[] = [
   { path: "/", priority: 1, changeFrequency: "monthly" },
   { path: "/download", priority: 0.8, changeFrequency: "monthly" },
+  { path: "/guides", priority: 0.6, changeFrequency: "monthly" },
+  ...guides("en").map((g) => ({ path: `/guides/${g.slug}`, priority: 0.7, changeFrequency: "monthly" as const, lastModified: g.updated })),
   { path: "/privacy", priority: 0.3, changeFrequency: "yearly", lastModified: LEGAL_UPDATED },
   { path: "/terms", priority: 0.3, changeFrequency: "yearly", lastModified: LEGAL_UPDATED },
 ];
