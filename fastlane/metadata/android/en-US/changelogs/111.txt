@@ -1,0 +1,2 @@
+• Ask: switching to another screen while the assistant is answering no longer loses the answer
+• Ask: if an answer is interrupted, you can try again with one tap
