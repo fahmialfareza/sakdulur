@@ -16,6 +16,7 @@
     "desktop:build:signed": "tauri build --config src-tauri/tauri.developer-id.conf.json",
     "desktop:build:dev-signed": "tauri build --bundles app --config src-tauri/tauri.mac-development.conf.json",
     "ios:device": "scripts/ios-device.sh",
+    "store:reviews": "node scripts/store-reviews.mjs",
     "release:version": "node ./scripts/set-release-version.mjs"
   },
   "devDependencies": {

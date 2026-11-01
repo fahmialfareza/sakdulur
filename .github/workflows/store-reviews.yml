@@ -1,0 +1,70 @@
+name: Store Reviews to Discord
+
+# Each run posts the reviews since the last successful (non-dry) run, so the
+# run history is the only state. See apps/native/store/store-reviews.md.
+run-name: ${{ inputs.dry_run && 'Store reviews (dry run)' || 'Store reviews' }}
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print the Discord messages instead of posting them"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: store-reviews
+
+jobs:
+  reviews:
+    name: Post new reviews
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+
+      - name: Find the window
+        id: window
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SINCE="$(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow store-reviews.yml --status success --limit 50 \
+            --json createdAt,displayTitle \
+            --jq '[.[] | select(.displayTitle == "Store reviews")][0].createdAt // ""')"
+          UNTIL="$(gh run view "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --json createdAt --jq .createdAt)"
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+          echo "until=$UNTIL" >> "$GITHUB_OUTPUT"
+          echo "Window: ${SINCE:-none (first run seeds)} to $UNTIL"
+
+      - name: Post reviews
+        env:
+          SINCE: ${{ steps.window.outputs.since }}
+          UNTIL: ${{ steps.window.outputs.until }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          DISCORD_REVIEWS_WEBHOOK_URL: ${{ secrets.DISCORD_REVIEWS_WEBHOOK_URL }}
+          PLAY_JSON_KEY_DATA: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MS_STORE_TENANT_ID: ${{ secrets.MS_STORE_TENANT_ID }}
+          MS_STORE_CLIENT_ID: ${{ secrets.MS_STORE_CLIENT_ID }}
+          MS_STORE_CLIENT_SECRET: ${{ secrets.MS_STORE_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          ARGS=(--until "$UNTIL")
+          if [ -n "$SINCE" ]; then ARGS+=(--since "$SINCE"); else ARGS+=(--seed); fi
+          if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          node apps/native/scripts/store-reviews.mjs "${ARGS[@]}"

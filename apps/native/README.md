@@ -75,6 +75,8 @@ Linux: GNOME (Wayland) takes the dock icon from an installed `.desktop` file mat
 - [ ] Store releases (`RELEASE.md`): App Store (iOS), Mac App Store and Google Play first; Microsoft Store and
   Snap Store planned for 2026-11-01 (their workflows exist but are not verified yet).
 
+New store reviews are posted to Discord every week: see `store/store-reviews.md`.
+
 Apple review (guideline 4.2) rejects "just a website": the review notes in `RELEASE.md` list the native parts.
 
 Until every store has a bundled release, older installs still show the website: keep its app-mode code (the
