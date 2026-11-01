@@ -8,6 +8,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     ".next/**",
     ".open-next/**",
+    ".pages/**",
     ".wrangler/**",
     "out/**",
     "build/**",

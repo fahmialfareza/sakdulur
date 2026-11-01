@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: indexnow
@@ -32,10 +33,19 @@ jobs:
         with:
           node-version: 24.11.0
 
-      # The frontend deploys outside GitHub Actions: give it time to go live before asking for a recrawl.
+      # Recrawl only once this commit is live: wait for its run of the Deploy frontend workflow.
       - name: Wait for the deploy
         if: github.event_name == 'push'
-        run: sleep 600
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy-frontend.yml --commit "$GITHUB_SHA" --json databaseId --jq '.[0].databaseId')
+            [ -n "$id" ] && break
+            sleep 10
+          done
+          [ -n "$id" ] || { echo "No deploy run for $GITHUB_SHA"; exit 1; }
+          gh run watch "$id" --repo "$GITHUB_REPOSITORY" --exit-status --interval 30
 
       - name: Ping IndexNow
         run: node apps/frontend/scripts/indexnow.mjs

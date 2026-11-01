@@ -1,0 +1,62 @@
+name: Deploy frontend
+
+# Builds apps/frontend and uploads it to the Cloudflare Pages project `sakdulur` (scripts/build-pages.mjs): the public
+# pages as static files, everything else through the Worker in _worker.js. Pages' own Git builds are not used: they
+# would bundle _worker.js again (without wrangler.jsonc's keep_names: false).
+# Needs CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages: Edit), CLOUDFLARE_ACCOUNT_ID and the frontend's build-time
+# settings (docs/production-setup.md), each as a repository secret or variable.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/frontend/**"
+      - "pnpm-lock.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.11.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter frontend build:pages
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_CONTACT_EMAIL: ${{ secrets.NEXT_PUBLIC_CONTACT_EMAIL || vars.NEXT_PUBLIC_CONTACT_EMAIL }}
+          NEXT_PUBLIC_OPERATOR_NAME: ${{ secrets.NEXT_PUBLIC_OPERATOR_NAME || vars.NEXT_PUBLIC_OPERATOR_NAME }}
+          NEXT_PUBLIC_IMAGE_HOSTS: ${{ secrets.NEXT_PUBLIC_IMAGE_HOSTS || vars.NEXT_PUBLIC_IMAGE_HOSTS }}
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ secrets.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || vars.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
+          NEXT_PUBLIC_BING_SITE_VERIFICATION: ${{ secrets.NEXT_PUBLIC_BING_SITE_VERIFICATION || vars.NEXT_PUBLIC_BING_SITE_VERIFICATION }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN || vars.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${{ secrets.NEXT_PUBLIC_SENTRY_ENVIRONMENT || vars.NEXT_PUBLIC_SENTRY_ENVIRONMENT }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG || vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      # From the repo root: in apps/frontend wrangler would read the Worker's wrangler.jsonc (scripts/build-pages.mjs).
+      - name: Deploy to Cloudflare Pages
+        run: >-
+          apps/frontend/node_modules/.bin/wrangler pages deploy apps/frontend/.pages
+          --project-name sakdulur --branch main --no-bundle
+          --commit-hash "$GITHUB_SHA" --commit-message "$(git log -1 --format=%s)"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}

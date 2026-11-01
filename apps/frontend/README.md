@@ -1,8 +1,8 @@
 # Family Tree — frontend
 
 Next.js 16 (App Router) + React 19, Tailwind CSS 4 with shadcn/ui, TanStack Query, React Flow + ELK for the tree
-canvas, next-intl (English / Bahasa Indonesia), next-themes (light / dark). Deployed to Cloudflare Workers with
-OpenNext.
+canvas, next-intl (English / Bahasa Indonesia), next-themes (light / dark). Deployed to Cloudflare Pages: an OpenNext
+Worker as `_worker.js` plus the public pages as static files (`scripts/build-pages.mjs`, `docs/production-setup.md`).
 
 ## Run
 
@@ -12,7 +12,11 @@ pnpm --filter frontend dev    # http://localhost:3000 (the Go API must run on :4
 pnpm --filter frontend lint
 pnpm --filter frontend check-types
 pnpm --filter frontend build
+pnpm --filter frontend preview:pages   # the Pages build locally (move .env aside first: OpenNext bundles it)
 ```
+
+Deploys run from `.github/workflows/deploy-frontend.yml` on pushes to `main`. Build for Pages without `apps/frontend/.env`
+(CI has none): OpenNext copies its values into the Worker bundle as defaults.
 
 ## How it talks to the API (BFF)
 
@@ -34,7 +38,8 @@ The browser only talks to this app. Tokens never reach page JavaScript:
 
 - `src/app/[locale]/` holds every page (app URLs are locale-free, see middleware). `(marketing)` — landing, privacy, terms
   (also at `/en/...` and `/id/...`; build their links with `localePath` from `src/lib/seo.ts`),
-  prerendered per language and served from Workers static assets (`open-next.config.ts`); the header reads the
+  prerendered per language and served as static Pages files at their `/en`, `/id` URLs (`scripts/build-pages.mjs`;
+  plain URLs go through the Worker for language detection); the header reads the
   `ft_signed_in` hint cookie in the browser. `(auth)` — sign-in flows and `/invite`.
   `(app)/app` — the signed-in app: `/app/t/[treeId]` (canvas), `people`, `families`, `members`, `settings`,
   plus `/app/account` and `/app/onboarding`.

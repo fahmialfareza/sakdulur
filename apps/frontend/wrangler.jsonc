@@ -7,10 +7,10 @@
   // keep_names makes esbuild add __name() calls, which break scripts that are inlined via Function#toString
   // (next-themes' no-flash theme script threw "__name is not defined").
   "keep_names": false,
-  // Runtime variables are managed in the dashboard (Worker > Settings > Variables and Secrets):
-  // BACKEND_URL, BACKEND_PUBLIC_URL, SENTRY_DSN (optional), plus the BFF_SHARED_SECRET secret. keep_vars stops `wrangler deploy`
-  // from deleting those plain-text vars. NEXT_PUBLIC_* values are build-time: set them where the build runs.
-  // See docs/production-setup.md.
+  // The site runs on Cloudflare Pages: scripts/build-pages.mjs bundles the Worker with this file
+  // (`wrangler deploy --dry-run`) into the Pages `_worker.js`. Runtime variables live in the Pages project
+  // (Settings > Variables and Secrets). The `sakdulur` Worker this file used to deploy is kept for a while as the rollback;
+  // keep_vars stops a `wrangler deploy` from deleting its dashboard vars. See docs/production-setup.md.
   "keep_vars": true,
   "assets": {
     "directory": ".open-next/assets",
