@@ -119,7 +119,7 @@ jobs:
           xcrun productbuild --component "$APP_PATH" /Applications --sign "$MACOS_INSTALLER_SIGNING_IDENTITY" "$pkg"
           echo "PKG_PATH=$pkg" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sakdulur-macos-pkg-${{ inputs.build_number }}
           path: ${{ env.PKG_PATH }}
