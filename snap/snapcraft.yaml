@@ -43,22 +43,12 @@ grade: stable
 confinement: strict
 icon: apps/native/src-tauri/icons/icon.png
 
-# The single-instance plugin owns this session bus name; without the slot confinement refuses it, so every
-# deep link (the sign-in callback) started a second app instead of reaching the open one.
-slots:
-  single-instance:
-    interface: dbus
-    bus: session
-    name: com.fahmialfareza.sakdulur.SingleInstance
-
 apps:
   sakdulur:
     command: usr/bin/sakdulur
     extensions:
       - gnome
     desktop: usr/share/applications/sakdulur.desktop
-    slots:
-      - single-instance
     plugs:
       - browser-support
       - home
