@@ -290,8 +290,15 @@ pub fn run() {
                 })
                 .build()?;
 
+            // The snap declares the scheme in its desktop file (snapd registers it), and registering at runtime
+            // needs xdg-mime, which the snap doesn't have: the error closed the app on start. Elsewhere a failure
+            // only costs the deep link, so it must not stop the app either.
             #[cfg(any(windows, target_os = "linux"))]
-            app.deep_link().register_all()?;
+            if std::env::var_os("SNAP").is_none() {
+                if let Err(err) = app.deep_link().register_all() {
+                    eprintln!("Sakdulur: could not register the deep link scheme: {err}");
+                }
+            }
             let link_handle = handle.clone();
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {

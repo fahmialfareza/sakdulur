@@ -102,3 +102,6 @@ parts:
       mv "$apps/Sakdulur.desktop" "$apps/sakdulur.desktop"
       icon="$(find "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor" -path '*/apps/sakdulur.png' | sort -V | tail -n 1)"
       sed -i "s|^Icon=.*|Icon=/${icon#"$SNAPCRAFT_PART_INSTALL/"}|" "$apps/sakdulur.desktop"
+      # The app registers no handler inside the snap, so this file's Exec must pass the sign-in deep link on.
+      sed -i 's|^Exec=sakdulur$|Exec=sakdulur %u|' "$apps/sakdulur.desktop"
+      grep -q '^Exec=sakdulur %u$' "$apps/sakdulur.desktop"
