@@ -464,36 +464,40 @@ function Canvas({ treeId }: { treeId: string }) {
             />
           </div>
         ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            edgesFocusable={false}
-            elementsSelectable
-            minZoom={MIN_ZOOM}
-            maxZoom={MAX_ZOOM}
-            proOptions={{ hideAttribution: true }}
-            onNodeClick={(_, node) => node.type === "person" && undefined}
-            onPaneClick={dismissToolbar}
-            aria-label={t("canvasLabel", { name: graph.tree.name })}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
-            <Controls
-              showInteractive={false}
-              position="bottom-right"
-              className="no-print"
-            />
-            {wide ? (
-              <MiniMap
-                pannable
-                zoomable
-                className="no-print !rounded-lg !border"
-                nodeStrokeWidth={2}
+          // Its own inline height: 100% doesn't resolve against a parent that only has a min-height in WebKitGTK
+          // (the Linux app), which drew the canvas 0px tall; an absolutely placed box gives it a definite one.
+          <div className="absolute inset-0">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              edgesFocusable={false}
+              elementsSelectable
+              minZoom={MIN_ZOOM}
+              maxZoom={MAX_ZOOM}
+              proOptions={{ hideAttribution: true }}
+              onNodeClick={(_, node) => node.type === "person" && undefined}
+              onPaneClick={dismissToolbar}
+              aria-label={t("canvasLabel", { name: graph.tree.name })}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} />
+              <Controls
+                showInteractive={false}
+                position="bottom-right"
+                className="no-print"
               />
-            ) : null}
-          </ReactFlow>
+              {wide ? (
+                <MiniMap
+                  pannable
+                  zoomable
+                  className="no-print !rounded-lg !border"
+                  nodeStrokeWidth={2}
+                />
+              ) : null}
+            </ReactFlow>
+          </div>
         )}
 
         {graph.people.length > 0 ? (
