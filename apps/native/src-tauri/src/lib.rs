@@ -178,12 +178,73 @@ fn notify_download(webview: &Webview, state: &str, url: &Url, name: &str) {
     ));
 }
 
+/// One app in the Linux snap. The single-instance plugin owns a session bus name, which confinement refuses
+/// without a dbus slot (and that slot needs a manual Snap Store review), so every deep link started a second
+/// app. Instead the first app listens on a socket in the snap's own runtime folder; a later launch hands its
+/// arguments (the deep link) over it and exits.
+#[cfg(target_os = "linux")]
+mod snap_instance {
+    use std::io::{Read, Write};
+    use std::os::unix::net::{UnixListener, UnixStream};
+    use std::path::PathBuf;
+
+    use tauri::{AppHandle, Manager, Url};
+
+    pub fn in_snap() -> bool {
+        std::env::var_os("SNAP").is_some()
+    }
+
+    fn socket() -> Option<PathBuf> {
+        Some(PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?).join("sakdulur.sock"))
+    }
+
+    /// Hands the arguments to a running app and exits, or returns the socket to listen on (None: run without).
+    pub fn claim() -> Option<UnixListener> {
+        let path = socket()?;
+        if let Ok(mut running) = UnixStream::connect(&path) {
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            if running.write_all(args.join("\n").as_bytes()).is_ok() {
+                std::process::exit(0);
+            }
+        }
+        // Nothing answered: a socket file left by an app that crashed.
+        let _ = std::fs::remove_file(&path);
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        UnixListener::bind(&path).map_err(|err| eprintln!("Sakdulur: no single-instance socket: {err}")).ok()
+    }
+
+    /// Later launches: open their deep link here and bring this window to the front.
+    pub fn listen(app: AppHandle, listener: UnixListener) {
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut args = String::new();
+                let _ = (&stream).read_to_string(&mut args);
+                for link in args.lines().filter_map(|arg| Url::parse(arg).ok()) {
+                    super::open_deep_link(&app, &link);
+                }
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+        });
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    let snap_listener = if snap_instance::in_snap() { snap_instance::claim() } else { None };
     #[cfg_attr(mobile, allow(unused_mut))]
     let mut builder = tauri::Builder::default();
+    #[cfg(target_os = "linux")]
+    let single_instance_plugin = !snap_instance::in_snap();
+    #[cfg(all(desktop, not(target_os = "linux")))]
+    let single_instance_plugin = true;
     #[cfg(desktop)]
-    {
+    if single_instance_plugin {
         // Must be the first plugin: a second launch (how Windows and Linux deliver deep links) focuses this one.
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -310,6 +371,10 @@ pub fn run() {
                 for url in urls {
                     open_deep_link(&handle, &url);
                 }
+            }
+            #[cfg(target_os = "linux")]
+            if let Some(listener) = snap_listener {
+                snap_instance::listen(handle.clone(), listener);
             }
             let _ = window.set_focus();
             Ok(())
