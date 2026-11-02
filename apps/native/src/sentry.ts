@@ -27,7 +27,8 @@ export function initSentry() {
     // The Go API has no Sentry, and the extra trace headers would fail its CORS preflight.
     tracePropagationTargets: [],
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1,
+    // The plan has 50 replays a month, shared with the website: 1 in 4 error sessions.
+    replaysOnErrorSampleRate: 0.25,
     integrations: [
       Sentry.reactRouterV7BrowserTracingIntegration({ useEffect, useLocation, useNavigationType, createRoutesFromChildren, matchRoutes }),
       // Names, dates and photos of relatives are private: every text, input and image is masked.

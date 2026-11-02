@@ -12,7 +12,8 @@ if (SENTRY_DSN) {
     initialScope: SENTRY_INITIAL_SCOPE,
     tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE,
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 1,
+    // The plan has 50 replays a month, shared with the apps (src/sentry.ts in apps/native): 1 in 4 error sessions.
+    replaysOnErrorSampleRate: 0.25,
     integrations: [Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] })],
   });
   // Versions of the desktop and mobile apps that show this site mark themselves with the client cookie.
