@@ -10,7 +10,13 @@ on:
     branches: [main]
     paths:
       - "apps/frontend/**"
+      # The app's pages are apps/native's website build (vite build --mode web).
+      - "apps/native/src/**"
+      - "apps/native/index.html"
+      - "apps/native/vite.config.ts"
+      - "apps/native/package.json"
       - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 
 permissions:
