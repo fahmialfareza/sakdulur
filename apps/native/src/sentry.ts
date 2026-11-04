@@ -5,14 +5,16 @@ import { nativePlatform } from "@/lib/native";
 
 // Errors, traces, Session Replay (only when an error happens) and logs of the app, like the website's
 // (apps/frontend src/instrumentation-client.ts). Without VITE_SENTRY_DSN nothing is sent.
-const DSN = import.meta.env.VITE_SENTRY_DSN || undefined;
+// The website build (vite.config.ts, mode "web") reports to the website's project, through its tunnel.
+const DSN = (__WEB__ ? __WEB_SENTRY_DSN__ : import.meta.env.VITE_SENTRY_DSN) || undefined;
 
 export function initSentry() {
   if (!DSN) return;
   Sentry.init({
     dsn: DSN,
     release: __APP_RELEASE__,
-    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || (import.meta.env.PROD ? "production" : "development"),
+    environment: (__WEB__ ? __WEB_SENTRY_ENVIRONMENT__ : import.meta.env.VITE_SENTRY_ENVIRONMENT) || (import.meta.env.PROD ? "production" : "development"),
+    tunnel: __WEB__ ? "/api/monitoring" : undefined,
     // Family trees are private: no user details, cookies, bodies or local variables.
     dataCollection: {
       userInfo: false,
@@ -37,5 +39,5 @@ export function initSentry() {
     ],
   });
   Sentry.setTag("platform", nativePlatform());
-  Sentry.setTag("app", "native");
+  Sentry.setTag("app", __WEB__ ? "web" : "native");
 }

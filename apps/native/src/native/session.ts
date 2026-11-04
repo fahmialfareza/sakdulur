@@ -17,6 +17,9 @@ export function getSession(): Stored | null {
 
 export const hasSession = () => !!getSession();
 
+/** Where signed-out users go (the website build has its own: src/web/session.ts). */
+export const signInPath = (next: string) => `/welcome?next=${encodeURIComponent(next)}`;
+
 /** Saves a new pair. A refresh answered within the API's grace window has no new refresh token: keep the old one. */
 export function setSession(pair: Pick<TokenPair, "accessToken" | "accessTokenExpiresAt" | "refreshToken">) {
   const refreshToken = pair.refreshToken ?? getSession()?.refreshToken;

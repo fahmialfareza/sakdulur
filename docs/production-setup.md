@@ -1,8 +1,8 @@
 # Deployment and configuration
 
-Two apps: the Go API (`apps/backend-go`, Railway) and the Next.js frontend (`apps/frontend`, Cloudflare Pages via
-OpenNext). Browsers only talk to the frontend; its server forwards API calls (BFF) and keeps the session in httpOnly
-cookies.
+Two apps: the Go API (`apps/backend-go`, Railway) and the frontend (`apps/frontend`, Cloudflare Pages: static files
+and a small Worker, `edge/worker.ts`). Browsers only talk to the frontend; its Worker forwards API calls (BFF) and
+keeps the session in httpOnly cookies.
 
 ```
 browser ──► frontend (Cloudflare)  ──BACKEND_URL──►  Go API (Railway) ──► Postgres, Redis
@@ -58,15 +58,17 @@ and Secrets, Production).
 | `NEXT_PUBLIC_IMAGE_HOSTS` | build | Extra image origins for the CSP (Cloudinary is built in) |
 | `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`, `NEXT_PUBLIC_BING_SITE_VERIFICATION` | build (optional) | Verification codes from Google Search Console / Bing Webmaster Tools (the `content` of their meta tag) |
 | `NEXT_PUBLIC_SENTRY_DSN` | build (optional) | Sentry DSN for browser reports (errors, traces, replays on error, logs). Sent through `/api/monitoring`, so the CSP needs no change. Unset = off |
-| `SENTRY_DSN` | runtime (optional) | Same DSN for the Worker's server-side reports (`worker.ts`) |
+| `SENTRY_DSN` | runtime (optional) | A DSN the Worker's Sentry tunnel (`/api/monitoring`) accepts, besides `NEXT_PUBLIC_SENTRY_DSN` |
 | `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | build (optional) | Sentry environment (default `production`) |
-| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | build (optional) | Upload source maps during the build; the release is the commit (`GITHUB_SHA` in the deploy workflow, `WORKERS_CI_COMMIT_SHA` on Workers Builds) |
+| `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | build (optional) | Upload source maps during the build; the release is the commit (`GITHUB_SHA` in the deploy workflow) |
 | `IOS_APP_IDS` | runtime (mobile) | `<TeamID>.com.fahmialfareza.sakdulur`; serves `/.well-known/apple-app-site-association` |
 | `ANDROID_APP_PACKAGE`, `ANDROID_CERT_SHA256` | runtime (mobile) | Package name and signing fingerprints; serves `/.well-known/assetlinks.json` |
 
 **Language:** the account's language (applied at sign-in), then the `NEXT_LOCALE` cookie, then the visitor's
-country (`cf-ipcountry`, added by Cloudflare's IP Geolocation setting, on by default: Indonesia → Indonesian,
-elsewhere → English), then the browser's Accept-Language. Changing the language while signed in saves it on the
+country (Indonesia → Indonesian, elsewhere → English), then the browser's Accept-Language. The country comes from
+the zone's Transform Rule "Visitor country for the site's language pick" (Rules > Transform Rules > Request Header,
+free plan): on `sakdulur.com` / `www.sakdulur.com` it sets `x-sakdulur-country` to `ip.src.country`, overwriting any
+value the browser sent; `edge/worker.ts` falls back to `request.cf.country` and `CF-IPCountry`. Changing the language while signed in saves it on the
 account (migration 00008).
 
 Local development needs none of these: both apps fall back to `http://localhost:3000` / `http://localhost:4000`.
@@ -74,22 +76,28 @@ Local development needs none of these: both apps fall back to `http://localhost:
 ## Cloudflare Pages
 
 Since 2026-11-02 the frontend runs on the Cloudflare Pages project `sakdulur` (before: the `sakdulur` Worker, Workers
-Builds), so the public pages are served as static files (free and unlimited) instead of running the Worker on every
-crawl. `www.sakdulur.com` is a zone Redirect Rule (301 to the apex), not part of the project.
-`pnpm --filter frontend build:pages` (`apps/frontend/scripts/build-pages.mjs`) builds `apps/frontend/.pages/`:
-the OpenNext Worker as `_worker.js/` for the app, `/api` and plain URLs like `/` (language detection), and the
-prerendered `/en`, `/id/...` pages, guides, `robots.txt`, `sitemap.xml`, `llms.txt`, icons and OG image as static
-files (byte for byte the same HTML), listed in `_routes.json` with their headers in `_headers`.
+Builds), and since 2026-11-05 without a Next.js server: OpenNext's Worker used about 19 ms of CPU a request (the free
+plan allows 10, and requests over it were stopped). `www.sakdulur.com` is a zone Redirect Rule (301 to the apex), not
+part of the project. `pnpm --filter frontend build:pages` (`apps/frontend/scripts/build-pages.mjs`) builds
+`apps/frontend/.pages/`:
+
+- static files (free and unlimited, listed in `_routes.json` with their headers in `_headers`): the prerendered `/en`,
+  `/id/...` pages, guides, `robots.txt`, `sitemap.xml`, `llms.txt`, icons and OG image (byte for byte Next's HTML), their
+  `/_next/static` code, `public/`, `404.html`, and the app under `/app-shell/` (`apps/native`, `vite build --mode web`)
+- `_worker.js`: `edge/worker.ts`, bundled by wrangler with `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_SENTRY_DSN` compiled
+  in: plain URLs like `/` (language pick, then the static page), the app's paths (the app shell, after the signed-out
+  redirect), `/api/proxy`, `/api/session/*`, `/auth/{google,apple}/complete`, `/api/locale`, `/api/monitoring`,
+  `/api/healthz`, `/uploads/*`, `/.well-known/*`, and the 404 page for anything else
 
 - Deploys: `.github/workflows/deploy-frontend.yml` on pushes to `main` (`apps/frontend/**`). It needs the
   `CLOUDFLARE_API_TOKEN` secret (Cloudflare Pages: Edit), the `CLOUDFLARE_ACCOUNT_ID` variable, the build-time
   `NEXT_PUBLIC_*` / `SENTRY_ORG` / `SENTRY_PROJECT` values as repository variables, and `SENTRY_AUTH_TOKEN`.
-- Pages project (direct upload, production branch `main`): compatibility date `2026-01-08`, flag `nodejs_compat`,
-  and the runtime variables above (`BACKEND_URL`, `BACKEND_PUBLIC_URL`, `BFF_SHARED_SECRET`, `SENTRY_DSN`, the mobile
+- Pages project (direct upload, production branch `main`): compatibility date `2026-10-01` (the Worker needs no
+  `nodejs_compat`), and the runtime variables above (`BACKEND_URL`, `BACKEND_PUBLIC_URL`, `BFF_SHARED_SECRET`, `SENTRY_DSN`, the mobile
   ones) under Settings > Variables and Secrets.
-- Locally: `pnpm --filter frontend preview:pages`. Wrangler's Pages commands run from the repo root, because in
-  `apps/frontend` they pick up the Worker's `wrangler.jsonc`. Build without `apps/frontend/.env` for anything you
-  deploy: OpenNext copies its values (localhost API, dev secrets) into the Worker as defaults.
+- Locally: `pnpm --filter frontend preview:pages` (http://localhost:8788), with the Worker's variables passed as
+  `--binding BACKEND_URL=http://localhost:4000 --binding BFF_SHARED_SECRET=...` and the API's `APP_BASE_URL` set
+  to that origin.
 - Rollback (while the old Worker exists): remove `sakdulur.com` from the Pages project's custom domains and add it
   back to the Worker (Settings > Domains & Routes).
 

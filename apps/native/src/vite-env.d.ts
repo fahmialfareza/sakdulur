@@ -14,3 +14,8 @@ declare const __APP_RELEASE__: string;
 
 // apps/frontend code reads a few process.env values; vite.config.ts `define` replaces them.
 declare const process: { env: Record<string, string | undefined> };
+
+/** The website build (`vite build --mode web`, vite.config.ts) and its Sentry settings. */
+declare const __WEB__: boolean;
+declare const __WEB_SENTRY_DSN__: string;
+declare const __WEB_SENTRY_ENVIRONMENT__: string;

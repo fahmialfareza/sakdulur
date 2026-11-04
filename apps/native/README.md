@@ -28,6 +28,18 @@ Three `apps/frontend` modules talk to the website's server, and the app replaces
 Keep their exports in step with `src/native/*` when changing them. Everything else is shared as is; a component that
 needs the website's server (`/api/session`, `/api/proxy`) should go through those three modules.
 
+### The website build
+
+`pnpm build:web` (`vite build --mode web`, into `dist-web/`) builds the same screens for sakdulur.com, where they are
+the app's pages (`/app`, `/auth/*`, `/admin`, `/invite`) instead of Next.js rendering them: apps/frontend's
+`scripts/build-pages.mjs` serves it under `/app-shell/` and its `edge/worker.ts` hands it out for those paths. The
+web build keeps the website's own API client (httpOnly cookies through the Worker's `/api/proxy`) and replaces
+instead (`src/web/*`): the session check (the `ft_signed_in` hint cookie), the language (the `NEXT_LOCALE` cookie),
+the offline copy (IndexedDB plus the website's `public/sw.js` for the code), the env (`/api/proxy`), and Sentry
+(the website's project, through `/api/monitoring`). `"@frontend/…"` imports always reach the originals.
+`process.env.NEXT_PUBLIC_SPA` is `"1"` in both builds, for frontend code that must use react-router instead of
+Next.js behavior. Run `check-types`, `build` and `build:web` after frontend changes.
+
 **App id / bundle id / URL scheme:** `com.fahmialfareza.sakdulur`. It can't change after the first store upload.
 
 ## Run it

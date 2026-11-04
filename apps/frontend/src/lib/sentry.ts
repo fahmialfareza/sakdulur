@@ -2,8 +2,9 @@ import type { init } from "@sentry/nextjs";
 
 type DataCollection = NonNullable<NonNullable<Parameters<typeof init>[0]>["dataCollection"]>;
 
-// Shared Sentry settings for the browser (instrumentation-client.ts) and `next dev` (sentry.*.config.ts). The Worker
-// takes its own from worker.ts. Without NEXT_PUBLIC_SENTRY_DSN (local development, CI) nothing is sent.
+// Shared Sentry settings for the browser (instrumentation-client.ts) and `next dev` (sentry.*.config.ts). In production
+// the app's pages are apps/native's website build (its src/sentry.ts). Without NEXT_PUBLIC_SENTRY_DSN (local
+// development, CI) nothing is sent.
 export const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || undefined;
 export const SENTRY_ENVIRONMENT = process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV;
 export const SENTRY_TRACES_SAMPLE_RATE = process.env.NODE_ENV === "production" ? 0.1 : 1;

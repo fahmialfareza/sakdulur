@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "vite build --mode web",
     "preview": "vite preview",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "tauri": "tauri",

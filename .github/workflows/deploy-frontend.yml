@@ -1,8 +1,8 @@
 name: Deploy frontend
 
 # Builds apps/frontend and uploads it to the Cloudflare Pages project `sakdulur` (scripts/build-pages.mjs): the public
-# pages as static files, everything else through the Worker in _worker.js. Pages' own Git builds are not used: they
-# would bundle _worker.js again (without wrangler.jsonc's keep_names: false).
+# pages and the app (apps/native's website build) as static files, and the small Worker (edge/worker.ts) as
+# _worker.js, already bundled (--no-bundle).
 # Needs CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages: Edit), CLOUDFLARE_ACCOUNT_ID and the frontend's build-time
 # settings (docs/production-setup.md), each as a repository secret or variable.
 on:
@@ -51,7 +51,8 @@ jobs:
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      # From the repo root: in apps/frontend wrangler would read the Worker's wrangler.jsonc (scripts/build-pages.mjs).
+      # The Worker reads BACKEND_URL, BACKEND_PUBLIC_URL, BFF_SHARED_SECRET, SENTRY_DSN and the app-link variables
+      # from the Pages project's settings (docs/production-setup.md).
       - name: Deploy to Cloudflare Pages
         run: >-
           apps/frontend/node_modules/.bin/wrangler pages deploy apps/frontend/.pages

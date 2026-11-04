@@ -96,7 +96,7 @@ import { errorMessage } from "@/lib/api/client";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { useDeletePerson, useFamilies, useGraph } from "@/lib/api/hooks";
 import { isBranchScope, selectBranch } from "@/lib/branch";
-import { nativePlatform, saveFile } from "@/lib/native";
+import { saveFile } from "@/lib/native";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useOnlineRole } from "@/lib/offline";
 import {
@@ -252,9 +252,10 @@ function Canvas({ treeId }: { treeId: string }) {
         else next.set(k, v);
       }
       const url = `${pathname}?${next.toString()}`;
-      // The app's router (react-router) never sees a bare history.replaceState, so the drawer's tabs and close did
-      // nothing there; its replace is client-side only.
-      if (nativePlatform() !== "web") return router.replace(url, { scroll: false });
+      // The browser app (apps/native, react-router: the mobile and desktop apps and the website's app pages) never
+      // sees a bare history.replaceState, so the drawer's tabs and close did nothing there; its replace is
+      // client-side only.
+      if (process.env.NEXT_PUBLIC_SPA === "1") return router.replace(url, { scroll: false });
       // The browser's own history (Next.js keeps useSearchParams in step): the tree page's server part doesn't use
       // these, so there's nothing to ask the server, which also keeps people opening while offline.
       window.history.replaceState(null, "", url);

@@ -1,25 +1,22 @@
-// Sakdulur's offline copy: trees, people and photos opened while online stay readable without internet.
-// Registered on the app pages by src/lib/offline.ts. Online, everything comes from the network (and the copy is
-// updated); offline, the last copy answers. Editing needs the network (see src/lib/api/client.ts).
+// Sakdulur's offline copy: the app (apps/native's website build under /app-shell/) opens without internet, with the
+// trees opened before (React Query keeps their data in IndexedDB: apps/native src/query-client.ts) and their photos.
+// Registered by the app (apps/native src/web/offline.ts). Online, the app's page comes from the network (and the
+// copy is updated); offline, or when the network is slow, the last copy answers. Editing needs the network.
 //
-// Bump VERSION when the caching rules change: older caches are then deleted.
-const VERSION = "8";
-const STATIC = `sakdulur-static-v${VERSION}`;
-const PAGES = `sakdulur-pages-v${VERSION}`;
-const DATA = `sakdulur-data-v${VERSION}`;
+// Bump VERSION when the caching rules change: older caches are then deleted (also the page caches of the
+// Next.js site this replaced).
+const VERSION = "9";
+const SHELL = `sakdulur-shell-v${VERSION}`;
 const PHOTOS = `sakdulur-photos-v${VERSION}`;
-const CACHES = [STATIC, PAGES, DATA, PHOTOS];
+const CACHES = [SHELL, PHOTOS];
 
 const NETWORK_WAIT_MS = 4000; // then answer from the copy, if there is one
-const MAX_STATIC = 600;
+const MAX_SHELL = 200;
 const MAX_PHOTOS = 600;
 const PHOTO_HOSTS = ["res.cloudinary.com"];
-const SAVED_AT = "X-Sakdulur-Saved-At";
-const LAST_PAGE = "/__sakdulur/last-tree-page";
-const WARM_EVERY_MS = 10 * 60_000;
-// Never kept: who is signed in (it must come from the network, see claimOfflineData in src/lib/offline.ts) and the
-// auth endpoints (some answer with tokens).
-const NEVER_SAVED = (pathname) => pathname === "/api/proxy/api/me" || pathname.startsWith("/api/proxy/api/auth");
+// The app's page: every app path (/app, /app/t/<id>/people, /auth/login, ...) gets the same one.
+const SHELL_PAGE = "/__sakdulur/app-shell";
+const APP_PREFIXES = ["/app", "/admin", "/auth", "/invite", "/welcome"];
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -35,19 +32,7 @@ self.addEventListener("activate", (event) => {
 });
 
 // {type: "clear"}: signed out (or another account signed in), so nothing of this account stays on the device.
-// {type: "warm", urls, maxAge}: app pages and API data to keep (the page the user is on, its tree's other tabs, and
-// the user's other trees). Moving between tabs fetches only parts of a page, never the whole page, so without this
-// a tab visited that way had no copy for offline use; other trees had none unless opened on this device.
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "warm" && Array.isArray(event.data.urls)) {
-    event.waitUntil(
-      Promise.all([
-        warm(event.data.urls, Number(event.data.maxAge) || WARM_EVERY_MS, !!event.data.current),
-        // Code the page already loaded (some of it before this worker took over, so never saved).
-        Array.isArray(event.data.assets) ? saveAssetList(event.data.assets) : null,
-      ]),
-    );
-  }
   if (event.data && event.data.type === "clear") {
     event.waitUntil(
       Promise.all(CACHES.map((name) => caches.delete(name))).then(() => event.source && event.source.postMessage({ type: "cleared" })),
@@ -57,209 +42,57 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+  if (req.method !== "GET") return;
   const url = new URL(req.url);
-  const sameOrigin = url.origin === self.location.origin;
 
-  if (req.method !== "GET") {
-    // Saving needs the network; say so clearly instead of a bare network error.
-    if (sameOrigin && url.pathname.startsWith("/api/proxy/")) event.respondWith(fetch(req).catch(() => offlineJson()));
-    return;
-  }
-  if (sameOrigin && url.pathname.startsWith("/_next/static/")) return event.respondWith(cacheFirst(req, STATIC, MAX_STATIC));
-  if ((sameOrigin && url.pathname.startsWith("/uploads/")) || PHOTO_HOSTS.includes(url.hostname)) {
-    return event.respondWith(photo(req));
-  }
-  if (!sameOrigin) return;
-  if (NEVER_SAVED(url.pathname)) return;
-  if (url.pathname.startsWith("/api/proxy/")) return event.respondWith(networkFirst(req, DATA, req.url));
-  // Moving between pages fetches only page parts (RSC). Offline, answer with a plain error: Next.js then loads the
-  // whole page instead (it waits forever on a failed fetch), and that page load is answered from the copy below.
-  if (req.headers.get("RSC") === "1" || url.searchParams.has("_rsc")) {
-    return event.respondWith(fetch(req).catch(() => new Response("", { status: 503, headers: { "X-Sakdulur-Offline": "" } })));
-  }
-  // Page loads of the app.
-  if (req.mode === "navigate" && (url.pathname === "/app" || url.pathname.startsWith("/app/"))) {
-    return event.respondWith(page(req, url));
-  }
-});
-
-/**
- * The network, but at most NETWORK_WAIT_MS when a copy exists (race = false: as long as the network takes); keeps the
- * copy up to date.
- */
-async function networkFirst(req, cacheName, key, race = true) {
-  const cache = await caches.open(cacheName);
-  const network = fetch(req).then(async (res) => {
-    if (res.ok && res.type === "basic" && !res.redirected) await cache.put(key, await stamped(res.clone()));
-    return res;
-  });
-  network.catch(() => {}); // when the copy answered first, a later network failure is expected
-  const copy = await cache.match(key);
-  try {
-    if (!copy || !race) return await network;
-    return await Promise.race([network, wait(NETWORK_WAIT_MS).then(() => fromCopy(copy))]);
-  } catch {
-    if (copy) return fromCopy(copy);
-    throw new TypeError("offline");
-  }
-}
-
-async function page(req, url) {
-  const key = url.origin + url.pathname; // ?client=... from the apps' launcher doesn't make another page
-  try {
-    // No race: a slow answer may be the sign-in page (session ended), and the saved page must not stand in for it.
-    // The copy answers only when the network can't be reached.
-    const res = await networkFirst(req, PAGES, key, false);
-    if (url.pathname.startsWith("/app/t/") && !res.headers.has("X-Sakdulur-Offline")) {
-      const cache = await caches.open(PAGES);
-      await cache.put(LAST_PAGE, new Response(url.pathname));
-    }
-    return res;
-  } catch {
-    // Not opened before: /app (the apps' start page) goes to the tree that was open last; another app page goes to
-    // that tree's offline page, which keeps the app's header and tabs ("Try again" returns here). The plain offline
-    // page only when no tree was saved on this device.
-    const cache = await caches.open(PAGES);
-    const lastSaved = await cache.match(LAST_PAGE);
-    const last = lastSaved ? await lastSaved.text() : null;
-    if (url.pathname.replace(/\/$/, "") === "/app" && last && last !== url.pathname && (await cache.match(url.origin + last))) {
-      return Response.redirect(last, 302);
-    }
-    const tree = (url.pathname.match(/^\/app\/t\/([^/]+)/) || (last || "").match(/^\/app\/t\/([^/]+)/) || [])[1];
-    const offline = tree && `/app/t/${tree}/offline`;
-    if (offline && url.pathname !== offline && (await cache.match(url.origin + offline))) {
-      return Response.redirect(`${offline}?from=${encodeURIComponent(url.pathname + url.search)}`, 302);
-    }
-    return offlinePage();
-  }
-}
-
-// current: urls[0] is the page on screen (it becomes the tree that /app opens offline).
-async function warm(urls, maxAge, current) {
-  const pages = await caches.open(PAGES);
-  const data = await caches.open(DATA);
-  for (const [i, raw] of urls.entries()) {
-    const url = new URL(raw, self.location.origin);
-    if (url.origin !== self.location.origin || NEVER_SAVED(url.pathname)) continue;
-    if (url.pathname.startsWith("/api/proxy/")) {
-      const hit = await data.match(url.href);
-      if (hit && Date.now() - Date.parse(hit.headers.get(SAVED_AT) || "0") < maxAge) continue;
-      try {
-        const res = await fetch(url.href, { credentials: "same-origin" });
-        if (res.ok && res.type === "basic") await data.put(url.href, await stamped(res));
-      } catch {
-        return; // offline: nothing to warm
-      }
-      continue;
-    }
-    if (!(url.pathname === "/app" || url.pathname.startsWith("/app/"))) continue;
-    const key = url.origin + url.pathname;
-    const cache = pages;
-    const hit = await cache.match(key);
-    if (hit && Date.now() - Date.parse(hit.headers.get(SAVED_AT) || "0") < maxAge) continue;
-    try {
-      const res = await fetch(key, { credentials: "same-origin", headers: { Accept: "text/html" } });
-      const html = (res.headers.get("Content-Type") || "").includes("text/html");
-      if (res.ok && res.type === "basic" && !res.redirected && html) {
-        // The page's own code too: a page saved this way was never shown, so its scripts aren't saved yet.
-        await saveAssets(await res.clone().text());
-        await cache.put(key, await stamped(res));
-        if (current && i === 0 && url.pathname.startsWith("/app/t/")) await cache.put(LAST_PAGE, new Response(url.pathname));
-      }
-    } catch {
-      return; // offline: nothing to warm
-    }
-  }
-}
-
-/** Saves the /_next/static files a page refers to (scripts, styles, fonts) that aren't saved yet. */
-async function saveAssets(html) {
-  await saveAssetList(html.match(/\/_next\/static\/[^"'\s\\)]+/g) || []);
-}
-
-async function saveAssetList(list) {
-  const cache = await caches.open(STATIC);
-  const paths = new Set(list.filter((p) => typeof p === "string" && new URL(p, self.location.origin).pathname.startsWith("/_next/static/")));
-  for (const path of paths) {
-    const url = new URL(path, self.location.origin).href;
-    if (await cache.match(url)) continue;
-    try {
-      const res = await fetch(url);
-      if (res.ok) await cache.put(url, res);
-    } catch {
+  if (url.origin === self.location.origin) {
+    // The app's code and fonts: names change with every build, so a saved copy is always right.
+    if (url.pathname.startsWith("/app-shell/assets/")) {
+      event.respondWith(cacheFirst(req, SHELL, MAX_SHELL));
       return;
     }
+    const isAppPage =
+      req.mode === "navigate" && APP_PREFIXES.some((p) => url.pathname === p || url.pathname.startsWith(`${p}/`));
+    if (isAppPage) event.respondWith(appPage(req));
+    // Everything else (the public pages, the API through /api/proxy) goes to the network as usual.
+    return;
   }
-  trim(cache, MAX_STATIC);
-}
+  if (PHOTO_HOSTS.includes(url.hostname)) event.respondWith(cacheFirst(req, PHOTOS, MAX_PHOTOS));
+});
 
-async function cacheFirst(req, cacheName, max) {
-  const cache = await caches.open(cacheName);
-  const hit = await cache.match(req);
-  if (hit) return hit;
-  const res = await fetch(req);
-  if (res.ok) {
-    await cache.put(req, res.clone());
-    trim(cache, max);
-  }
-  return res;
-}
-
-/** Photos: kept after the first view. Fetched with CORS so the copy is a real response (not an opaque one). */
-async function photo(req) {
-  const cache = await caches.open(PHOTOS);
-  const hit = await cache.match(req.url);
-  if (hit) return hit;
-  try {
-    const res = await fetch(req.url, { mode: "cors", credentials: "omit" });
-    if (res.ok) {
-      await cache.put(req.url, res.clone());
-      trim(cache, MAX_PHOTOS);
+/** The app's page from the network (saved for later), or the saved one when offline or slow. */
+async function appPage(req) {
+  const cache = await caches.open(SHELL);
+  const network = fetch(req).then(async (res) => {
+    // Only the app itself: a redirect (signed out) or an error page must not replace it.
+    if (res.ok && !res.redirected && (res.headers.get("content-type") || "").includes("text/html")) {
+      await cache.put(SHELL_PAGE, res.clone());
     }
     return res;
+  });
+  const saved = await cache.match(SHELL_PAGE);
+  if (!saved) return network;
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(null), NETWORK_WAIT_MS));
+  try {
+    return (await Promise.race([network, timeout])) || saved;
   } catch {
-    return fetch(req); // no CORS on that host, or offline: the browser's own handling (the avatar falls back to initials)
+    return saved;
   }
+}
+
+async function cacheFirst(req, name, max) {
+  const cache = await caches.open(name);
+  const saved = await cache.match(req);
+  if (saved) return saved;
+  const res = await fetch(req);
+  if (res.ok || res.type === "opaque") {
+    await cache.put(req, res.clone());
+    void trim(cache, max);
+  }
+  return res;
 }
 
 async function trim(cache, max) {
   const keys = await cache.keys();
   for (const key of keys.slice(0, Math.max(0, keys.length - max))) await cache.delete(key);
-}
-
-async function stamped(res) {
-  const headers = new Headers(res.headers);
-  headers.set(SAVED_AT, new Date().toISOString());
-  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers });
-}
-
-/** The copy, marked so the page can say "offline, data from <time>". */
-function fromCopy(copy) {
-  const headers = new Headers(copy.headers);
-  headers.set("X-Sakdulur-Offline", copy.headers.get(SAVED_AT) || "");
-  return new Response(copy.body, { status: copy.status, statusText: copy.statusText, headers });
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function offlineJson() {
-  return new Response(JSON.stringify({ status: 503, message: "offline" }), {
-    status: 503,
-    headers: { "Content-Type": "application/json", "X-Sakdulur-Offline": "" },
-  });
-}
-
-function offlinePage() {
-  const html = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sakdulur · Offline</title><style>
-body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;background:#f9f6ef;color:#3a3128;font:16px/1.5 system-ui,-apple-system,sans-serif;text-align:center;padding:24px}
-@media (prefers-color-scheme:dark){body{background:#221d18;color:#efe9df}p{color:#b9ad9f}}
-h1{font-size:22px;margin:0 0 8px}p{max-width:360px;margin:0 auto 6px;color:#75695c}button{margin-top:18px;border:0;border-radius:10px;background:#3f7a52;color:#fff;font:inherit;padding:10px 20px}
-</style></head><body><main>
-<h1>Anda sedang offline</h1><p>Halaman ini belum pernah dibuka di perangkat ini. Buka pohon keluarga sekali saat online agar bisa dilihat tanpa internet.</p>
-<p lang="en">You're offline. Open a family tree once while online to view it without internet.</p>
-<button onclick="location.reload()">Coba lagi</button></main></body></html>`;
-  return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

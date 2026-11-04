@@ -15,10 +15,12 @@ Guidance for working in the Next.js frontend app.
 - Language: TypeScript/JavaScript with Next.js. Follow `tsconfig.json` and existing component patterns.
 - Structure (see `apps/frontend/README.md`):
   - Pages live under `src/app/[locale]/` (`(marketing)`, `(auth)`, `(app)/app` route groups). URLs carry no
-    locale: `src/middleware.ts` picks it and rewrites into `[locale]`. Pages that should stay prerendered (the
+    locale: `src/middleware.ts` (`next dev`) and `edge/worker.ts` (production) pick it and serve `[locale]`. Pages that should stay prerendered (the
     marketing site) call `pageLocale()` from `src/i18n/static.ts` and must not read cookies or headers.
   - `src/app/api/session/*` and
-    `src/app/api/proxy/[...path]` are the BFF: the browser never calls the Go API or sees tokens.
+    `src/app/api/proxy/[...path]` are the BFF: the browser never calls the Go API or sees tokens. Production has no
+    Next.js server: `edge/worker.ts` does the same (keep them in step), and the app's pages are `apps/native`'s
+    website build (`pnpm --filter native build:web`), so a component change must also build there.
   - `src/components/ui/` shadcn/ui primitives (generate new ones with the shadcn CLI); feature components under
     `src/components/<feature>/`.
   - `src/lib/api/` types, fetch client and TanStack Query hooks; `src/lib/server/` server-only helpers.

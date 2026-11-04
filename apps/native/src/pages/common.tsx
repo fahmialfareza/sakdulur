@@ -7,7 +7,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { AuthProviders } from "@/components/auth/social-sign-in";
 import { api } from "@/lib/api/client";
-import { hasSession } from "../native/session";
+import { hasSession, signInPath } from "../native/session";
 
 /** The website's not-found page (apps/frontend app/[locale]/not-found.tsx). */
 export function NotFound() {
@@ -44,10 +44,10 @@ export function ErrorScreen({ retry = () => window.location.reload() }: { retry?
   );
 }
 
-/** Signed-out users go to the welcome screen (the website's middleware does this for the apps). */
+/** Signed-out users go to the welcome screen in the apps, the sign-in page on the website. */
 export function RequireSession({ children }: { children: React.ReactNode }) {
   const { pathname, search } = useLocation();
-  if (!hasSession()) return <Navigate to={`/welcome?next=${encodeURIComponent(pathname + search)}`} replace />;
+  if (!hasSession()) return <Navigate to={signInPath(pathname + search)} replace />;
   return children;
 }
 
