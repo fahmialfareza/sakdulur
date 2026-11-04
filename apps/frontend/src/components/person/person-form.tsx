@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { useSavePerson } from "@/lib/api/hooks";
 import type { Gender, LifeStatus, Person, Religion } from "@/lib/api/types";
 import { dateParts, partsToValue } from "@/lib/format";
 import { compressImage } from "@/lib/image";
+import { useNativePlatform } from "@/lib/native";
 import { PartialDate, PartialDateInput } from "./partial-date-input";
 
 function initialDate(iso?: string, precision?: Person["birthDatePrecision"], qualifier?: Person["birthDateQualifier"]): PartialDate {
@@ -54,6 +55,8 @@ export function PersonForm({
   const [compressing, setCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const withCamera = useNativePlatform() === "android";
 
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview);
@@ -76,6 +79,11 @@ export function PersonForm({
     } finally {
       setCompressing(false);
     }
+  }
+
+  function onPhotoInput(e: React.ChangeEvent<HTMLInputElement>) {
+    void pickPhoto(e.target.files?.[0]);
+    e.target.value = ""; // picking the same photo again still fires onChange
   }
 
   async function submit(e: React.FormEvent) {
@@ -116,16 +124,26 @@ export function PersonForm({
       <div className="flex items-center gap-4">
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="" className="size-16 rounded-full object-cover" />
+          <img src={preview} alt="" className="size-16 shrink-0 rounded-full object-cover" />
         ) : (
           <PersonAvatar name={name || "?"} photoUrl={person?.photoUrl} gender={gender} className="size-16" />
         )}
         <div className="flex flex-wrap gap-2">
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => pickPhoto(e.target.files?.[0])} aria-label={t("photo")} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={onPhotoInput} aria-label={t("photo")} />
           <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={compressing}>
-            {compressing ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Camera className="size-4" aria-hidden />}
+            {compressing ? <Loader2 className="size-4 animate-spin" aria-hidden /> : withCamera ? <ImagePlus className="size-4" aria-hidden /> : <Camera className="size-4" aria-hidden />}
             {person?.photoUrl || preview ? t("changePhoto") : t("addPhoto")}
           </Button>
+          {withCamera ? (
+            <>
+              {/* The Android app only offers the camera for an input with `capture` (iOS already offers it in the picker). */}
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={onPhotoInput} aria-label={t("takePhoto")} />
+              <Button type="button" variant="outline" size="sm" onClick={() => cameraRef.current?.click()} disabled={compressing}>
+                <Camera className="size-4" aria-hidden />
+                {t("takePhoto")}
+              </Button>
+            </>
+          ) : null}
           {preview ? (
             <Button
               type="button"

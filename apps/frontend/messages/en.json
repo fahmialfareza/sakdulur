@@ -235,6 +235,7 @@
     "photo": "Photo",
     "addPhoto": "Add photo",
     "changePhoto": "Change photo",
+    "takePhoto": "Take photo",
     "photoTooLarge": "That photo is too large (max 20 MB).",
     "photoInvalid": "That file can't be used as a photo.",
     "nameRequired": "Please enter a name.",

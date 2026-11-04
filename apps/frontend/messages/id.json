@@ -235,6 +235,7 @@
     "photo": "Foto",
     "addPhoto": "Tambah foto",
     "changePhoto": "Ganti foto",
+    "takePhoto": "Ambil foto",
     "photoTooLarge": "Foto terlalu besar (maks. 20 MB).",
     "photoInvalid": "Berkas ini tidak dapat dipakai sebagai foto.",
     "nameRequired": "Nama wajib diisi.",
