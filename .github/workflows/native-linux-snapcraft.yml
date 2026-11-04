@@ -81,7 +81,7 @@ jobs:
         id: snapcraft
         uses: canonical/action-build@v1
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sakdulur-snap-${{ matrix.arch }}-${{ inputs.build_number }}
           path: ${{ steps.snapcraft.outputs.snap }}

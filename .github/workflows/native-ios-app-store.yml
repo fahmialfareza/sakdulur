@@ -191,7 +191,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info")" = "$RELEASE_VERSION"
           echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sakdulur-ios-ipa-${{ inputs.build_number }}
           path: ${{ env.IPA_PATH }}
