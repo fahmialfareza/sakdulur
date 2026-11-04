@@ -14,7 +14,7 @@ import (
 // Copying a branch from another tree (POST /api/trees/:treeId/import), and pulling later changes from the
 // original into a copy (POST /api/trees/:treeId/people/:id/sync). Updates only ever flow one way, on demand.
 //
-// The caller picks a person in a source tree and a scope; those people and the relationships between them
+// The caller picks a person in a source tree and a scope (or the whole tree, where no person is needed); those people and the relationships between them
 // are copied into the destination tree as independent records. Only genealogy is copied (names, gender,
 // living status, dates and places); photos, phone numbers, addresses and notes stay in the source tree.
 // The caller must be an editor of the destination (route) and an owner or editor of the source; in a
@@ -35,6 +35,7 @@ const (
 	scopeAncestors   importScope = "ancestors"   // the person, their parents, grandparents, and so on up
 	scopeBoth        importScope = "both"
 	scopeNearby      importScope = "nearby" // everyone within N relationship steps
+	scopeAll         importScope = "all"    // everyone in the tree, related or not; the person is optional
 )
 
 type importRequest struct {
@@ -88,7 +89,9 @@ func selectBranch(g *treeGraph, root string, scope importScope, steps, limit int
 		order = append(order, id)
 		return true
 	}
-	add(root)
+	if root != "" {
+		add(root)
+	}
 
 	down := func() {
 		line := []string{root}
@@ -119,6 +122,13 @@ func selectBranch(g *treeGraph, root string, scope importScope, steps, limit int
 	}
 
 	switch scope {
+	case scopeAll:
+		for _, p := range g.People {
+			if len(order) > limit {
+				break
+			}
+			add(p.ID)
+		}
 	case scopeDescendants:
 		down()
 	case scopeAncestors:
@@ -148,19 +158,19 @@ func selectBranch(g *treeGraph, root string, scope importScope, steps, limit int
 func importPeople(c *gin.Context) {
 	defer newrelic.FromContext(c.Request.Context()).StartSegment("handler/importPeople").End()
 	var body importRequest
-	if err := c.ShouldBindJSON(&body); err != nil || body.SourceTreeID == "" || body.PersonID == "" {
+	if err := c.ShouldBindJSON(&body); err != nil || body.SourceTreeID == "" || (body.PersonID == "" && body.Scope != scopeAll) {
 		responseError(c, "Invalid request body", 400)
 		return
 	}
 	switch body.Scope {
-	case scopeDescendants, scopeAncestors, scopeBoth:
+	case scopeDescendants, scopeAncestors, scopeBoth, scopeAll:
 	case scopeNearby:
 		if body.Steps < 1 || body.Steps > 6 {
 			responseError(c, "steps must be between 1 and 6", 400)
 			return
 		}
 	default:
-		responseError(c, "scope must be descendants, ancestors, both or nearby", 400)
+		responseError(c, "scope must be descendants, ancestors, both, nearby or all", 400)
 		return
 	}
 	dest := currentAccess(c)
@@ -189,7 +199,7 @@ func importPeople(c *gin.Context) {
 	case errors.Is(err, errImportRootHidden):
 		responseError(c, "You can only copy people shared with you in that tree", 403)
 	case errors.Is(err, errImportTooLarge):
-		responseError(c, "That branch is too large to copy at once; choose a smaller scope", 413)
+		responseError(c, "That is too many people to copy at once; choose a smaller branch", 413)
 	case errors.Is(err, errGraphTooLarge):
 		responseError(c, "The source tree is too large to copy from", 413)
 	case err != nil:
@@ -212,7 +222,7 @@ func runImport(ctx context.Context, source, dest *treeAccess, body importRequest
 	for _, p := range g.People {
 		live[p.ID] = struct{}{}
 	}
-	if _, ok := live[body.PersonID]; !ok {
+	if _, ok := live[body.PersonID]; body.PersonID != "" && !ok {
 		return nil, gorm.ErrRecordNotFound
 	}
 
@@ -227,7 +237,7 @@ func runImport(ctx context.Context, source, dest *treeAccess, body importRequest
 		_, ok := writable[id]
 		return ok
 	}
-	if !allowed(body.PersonID) {
+	if body.PersonID != "" && !allowed(body.PersonID) {
 		return nil, errImportRootHidden
 	}
 

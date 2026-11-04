@@ -238,11 +238,12 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
-export type ImportScope = "descendants" | "ancestors" | "both" | "nearby";
+/** "all" is the whole tree, related or not (no person needed). */
+export type ImportScope = "descendants" | "ancestors" | "both" | "nearby" | "all";
 
 export interface ImportRequest {
   sourceTreeId: string;
-  personId: string;
+  personId?: string;
   scope: ImportScope;
   steps?: number;
   updateExisting?: boolean;

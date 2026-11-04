@@ -168,7 +168,13 @@
     "cancel": "Cancel",
     "copyFromTree": "Copy from another tree",
     "copyToTree": "Copy to another tree",
-    "copyFromTreeShort": "Copy from tree"
+    "copyFromTreeShort": "Copy from tree",
+    "family": "Family",
+    "familyAll": "All families",
+    "familySearch": "Search a family…",
+    "familyNone": "No family found.",
+    "familyBanner": "Showing {name}",
+    "copyMenu": "Copy"
   },
   "drawer": {
     "loading": "Loading…",
@@ -310,7 +316,8 @@
     "deleted": "Family deleted.",
     "emptyTitle": "No families yet",
     "emptyBody": "Group a household or branch to find it quickly.",
-    "children": "{count, plural, one {# child} other {# children}}"
+    "children": "{count, plural, one {# child} other {# children}}",
+    "copy": "Copy {name} to another tree"
   },
   "members": {
     "title": "Members",
@@ -573,6 +580,10 @@
       "nearby": {
         "title": "Close family",
         "body": "Everyone within a few relationship steps"
+      },
+      "all": {
+        "title": "Whole tree",
+        "body": "Everyone in the tree, related or not"
       }
     },
     "steps": "Steps",
@@ -595,7 +606,18 @@
     "noTargets": "You need to be an owner or editor of another tree to copy into it.",
     "toTree": "Copy to",
     "doneTo": "{created, plural, one {# person} other {# people}} copied to {tree}{updated, plural, =0 {} other {, # updated}}.",
-    "openTree": "Open"
+    "openTree": "Open",
+    "titleFromTree": "Copy from {name} to another tree",
+    "descriptionFromTree": "Copy a person's branch, a family or the whole tree into another tree you own or edit, or into a new tree.",
+    "startPerson": "Person",
+    "startFamily": "Family",
+    "searchFamily": "Search a family…",
+    "noFamilies": "No families you can copy here.",
+    "howMuch": "How much to copy?",
+    "newTree": "New tree…",
+    "newTreeName": "Name of the new tree",
+    "newTreeDefault": "{name} (copy)",
+    "tooMany": "That's more than {max} people; choose a smaller branch."
   },
   "assistant": {
     "nav": "Ask",

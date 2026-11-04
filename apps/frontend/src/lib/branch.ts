@@ -6,6 +6,7 @@ import type { Graph, ImportScope } from "@/lib/api/types";
  * go straight up, "nearby" is everyone within `steps` parent/child/partner links.
  */
 export function selectBranch(graph: Graph, root: string, scope: ImportScope, steps = 2): Set<string> {
+  if (scope === "all") return new Set(graph.people.map((p) => p._id));
   const parents = new Map<string, string[]>();
   const children = new Map<string, string[]>();
   const partners = new Map<string, string[]>();
@@ -53,6 +54,7 @@ export function selectBranch(graph: Graph, root: string, scope: ImportScope, ste
   return seen;
 }
 
+// The tree canvas's ?branch= values (the whole tree is simply no branch).
 export const BRANCH_SCOPES: ImportScope[] = ["descendants", "ancestors", "both", "nearby"];
 
 export function isBranchScope(v: string | null): v is ImportScope {

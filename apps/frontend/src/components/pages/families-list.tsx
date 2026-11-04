@@ -1,11 +1,12 @@
 "use client";
 
-import { Heart, Plus, Trash2, Users } from "lucide-react";
+import { Copy, Heart, Plus, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { type CopyFromTree, CopyDialog } from "@/components/copy/copy-dialog";
 import { Field } from "@/components/common/field";
 import { EmptyState, PageContainer, PageHeader } from "@/components/common/page";
 import { PersonAvatar } from "@/components/common/person-avatar";
@@ -20,7 +21,7 @@ import { useCreateFamily, useDeleteFamily, useFamilies, useGraph } from "@/lib/a
 import { relativesOf } from "@/lib/relatives";
 import { useOnlineRole } from "@/lib/offline";
 
-/** A family groups a person with their partner(s) and children; it opens on the canvas centered on them. */
+/** A family groups a person with their partner(s) and children; it opens on the canvas showing only that family. */
 export function FamiliesList({ treeId }: { treeId: string }) {
   const t = useTranslations("families");
   const tc = useTranslations("common");
@@ -31,6 +32,7 @@ export function FamiliesList({ treeId }: { treeId: string }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [personId, setPersonId] = useState("");
+  const [copying, setCopying] = useState<CopyFromTree | null>(null);
   const role = useOnlineRole(graph?.tree.role ?? "viewer");
   const editable = (graph?.people ?? []).filter((p) => p.canEdit).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -76,28 +78,41 @@ export function FamiliesList({ treeId }: { treeId: string }) {
             return (
               <li key={f._id} className="rounded-xl border bg-card p-4 shadow-[var(--shadow-soft)]">
                 <div className="flex items-start justify-between gap-2">
-                  <Link href={head ? `/app/t/${treeId}?focus=${head._id}` : `/app/t/${treeId}`} className="min-w-0 rounded-md focus-visible:ring-2 focus-visible:ring-ring">
+                  <Link href={head ? `/app/t/${treeId}?family=${f._id}` : `/app/t/${treeId}`} className="min-w-0 rounded-md focus-visible:ring-2 focus-visible:ring-ring">
                     <h2 className="truncate font-display text-lg font-semibold hover:underline">{f.name}</h2>
                   </Link>
                   {role !== "viewer" ? (
-                    <ConfirmDialog
-                      trigger={
-                        <Button variant="ghost" size="icon" className="size-8" aria-label={t("delete", { name: f.name })}>
-                          <Trash2 className="size-4" aria-hidden />
+                    <div className="flex shrink-0 items-center">
+                      {head && graph?.people.find((p) => p._id === head._id)?.canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          aria-label={t("copy", { name: f.name })}
+                          onClick={() => setCopying({ treeId, name: graph?.tree.name ?? "", familyId: f._id })}
+                        >
+                          <Copy className="size-4" aria-hidden />
                         </Button>
-                      }
-                      title={t("delete", { name: f.name })}
-                      description={t("deleteBody")}
-                      confirmLabel={tc("delete")}
-                      onConfirm={async () => {
-                        try {
-                          await remove.mutateAsync(f._id);
-                          toast.success(t("deleted"));
-                        } catch (err) {
-                          toast.error(errorMessage(err));
+                      ) : null}
+                      <ConfirmDialog
+                        trigger={
+                          <Button variant="ghost" size="icon" className="size-8" aria-label={t("delete", { name: f.name })}>
+                            <Trash2 className="size-4" aria-hidden />
+                          </Button>
                         }
-                      }}
-                    />
+                        title={t("delete", { name: f.name })}
+                        description={t("deleteBody")}
+                        confirmLabel={tc("delete")}
+                        onConfirm={async () => {
+                          try {
+                            await remove.mutateAsync(f._id);
+                            toast.success(t("deleted"));
+                          } catch (err) {
+                            toast.error(errorMessage(err));
+                          }
+                        }}
+                      />
+                    </div>
                   ) : null}
                 </div>
                 {head && rel ? (
@@ -124,6 +139,12 @@ export function FamiliesList({ treeId }: { treeId: string }) {
         </ul>
       )}
 
+      <CopyDialog
+        key={copying?.familyId ?? "none"}
+        fromTree={copying ?? undefined}
+        open={!!copying}
+        onOpenChange={(o) => !o && setCopying(null)}
+      />
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

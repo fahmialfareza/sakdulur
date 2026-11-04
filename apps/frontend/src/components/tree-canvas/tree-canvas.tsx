@@ -16,15 +16,19 @@ import {
 import "@xyflow/react/dist/style.css";
 import { toPng } from "html-to-image";
 import {
+  Check,
+  ChevronsUpDown,
   Copy,
   Download,
   Loader2,
   Maximize,
   TreePine,
   UserRoundPlus,
+  Users,
 } from "lucide-react";
 import {
   type CopyFromPerson,
+  type CopyFromTree,
   CopyDialog,
   useCopySources,
 } from "@/components/copy/copy-dialog";
@@ -58,6 +62,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -71,7 +94,7 @@ import {
 } from "@/components/ui/tooltip";
 import { errorMessage } from "@/lib/api/client";
 import { ExportDialog } from "@/components/export/export-dialog";
-import { useDeletePerson, useGraph } from "@/lib/api/hooks";
+import { useDeletePerson, useFamilies, useGraph } from "@/lib/api/hooks";
 import { isBranchScope, selectBranch } from "@/lib/branch";
 import { nativePlatform, saveFile } from "@/lib/native";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -158,14 +181,23 @@ function Canvas({ treeId }: { treeId: string }) {
   const branchParam = params.get("branch");
   const branchFrom = params.get("from");
   const branchSteps = Number(params.get("steps") ?? "2") || 2;
+  // ?family=<id>: show only that family, its head with their partners and descendants (Families page, switcher).
+  const { data: families } = useFamilies(treeId);
+  const familyParam = params.get("family");
+  const family = families?.find(
+    (f) => f._id === familyParam && !!f.person && !!graph?.people.some((p) => p._id === f.person?._id),
+  );
   const branch = useMemo(
     () =>
       isBranchScope(branchParam) && branchFrom && graph?.people.some((p) => p._id === branchFrom)
         ? { scope: branchParam, from: branchFrom, steps: branchSteps }
-        : null,
-    [branchParam, branchFrom, branchSteps, graph],
+        : family?.person
+          ? { scope: "descendants" as const, from: family.person._id, steps: branchSteps }
+          : null,
+    [branchParam, branchFrom, branchSteps, graph, family],
   );
   const branchName = branch ? graph?.people.find((p) => p._id === branch.from)?.name : undefined;
+  const [familyPicker, setFamilyPicker] = useState(false);
   // ?export=png: draw the picture once the tree is laid out, then drop the flag.
   const exportParam = params.get("export");
   const exportRequested = exportParam === "png" || exportParam === "print" ? exportParam : null;
@@ -185,6 +217,7 @@ function Canvas({ treeId }: { treeId: string }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [copyOut, setCopyOut] = useState<CopyFromPerson | null>(null);
+  const [copyTreeOut, setCopyTreeOut] = useState<CopyFromTree | null>(null);
   const copySources = useCopySources(treeId);
   const deletePerson = useDeletePerson(treeId);
   const deleting = graph?.people.find((p) => p._id === deleteId);
@@ -304,12 +337,13 @@ function Canvas({ treeId }: { treeId: string }) {
         const p = graph?.people.find((x) => x._id === id);
         if (p) setCopyOut({ treeId, personId: id, name: p.name });
       },
-      canCopyOut: copySources.length > 0,
+      // A copy can always go to a new tree.
+      canCopyOut: role !== "viewer",
       addRelative: (anchorId: string, kind: RelativeKind) =>
         setQuickAdd({ anchorId, kind }),
       canEditTree: role !== "viewer",
     }),
-    [setQuery, role, graph, treeId, copySources.length, setDeleteId, setCopyOut, setQuickAdd],
+    [setQuery, role, graph, treeId, setDeleteId, setCopyOut, setQuickAdd],
   );
 
   /** Draws the laid-out tree and saves it as a PNG, or prints it (light theme, fitted to the page). */
@@ -423,10 +457,15 @@ function Canvas({ treeId }: { treeId: string }) {
     <CanvasActions.Provider value={actions}>
       <div className="relative flex min-h-[calc(100dvh-7.5rem)] flex-1 md:min-h-dvh">
         {branch && branchName ? (
-          <div className="absolute inset-x-0 bottom-3 z-10 flex justify-center px-3 md:bottom-6">
-            <div className="flex max-w-full items-center gap-3 rounded-full border bg-card/95 py-1.5 pl-4 pr-1.5 text-sm shadow-[var(--shadow-soft)] backdrop-blur">
-              <span className="min-w-0 truncate">{te(`branchBanner.${branch.scope}`, { name: branchName })}</span>
-              <Button size="sm" variant="secondary" className="shrink-0 rounded-full" onClick={() => setQuery({ branch: null, from: null, steps: null })}>
+          // Phones: just above the bottom tabs (the canvas runs on under them, most on iPhones with a home bar).
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-20 flex justify-center px-3 md:absolute md:bottom-6 md:z-10">
+            <div className="pointer-events-auto flex max-w-full items-center gap-3 rounded-full border bg-card/95 py-1.5 pl-4 pr-1.5 text-sm shadow-[var(--shadow-soft)] backdrop-blur">
+              <span className="min-w-0 truncate">
+                {family && !isBranchScope(branchParam)
+                  ? t("familyBanner", { name: family.name })
+                  : te(`branchBanner.${branch.scope}`, { name: branchName })}
+              </span>
+              <Button size="sm" variant="secondary" className="shrink-0 rounded-full" onClick={() => setQuery({ branch: null, from: null, steps: null, family: null })}>
                 {te("showEveryone")}
               </Button>
             </div>
@@ -528,6 +567,82 @@ function Canvas({ treeId }: { treeId: string }) {
                 ))}
               </SelectContent>
             </Select>
+            {families && families.filter((f) => f.person).length > 1 ? (
+              <Popover open={familyPicker} onOpenChange={setFamilyPicker}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 max-w-48"
+                    aria-label={t("family")}
+                  >
+                    <Users className="size-4" aria-hidden />
+                    <span className="truncate">
+                      {family?.name ?? t("familyAll")}
+                    </span>
+                    <ChevronsUpDown
+                      className="size-3.5 opacity-60"
+                      aria-hidden
+                    />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder={t("familySearch")} />
+                    <CommandList className="max-h-64">
+                      <CommandEmpty>{t("familyNone")}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value={`__all ${t("familyAll")}`}
+                          onSelect={() => {
+                            setFamilyPicker(false);
+                            setQuery({ family: null });
+                          }}
+                        >
+                          <span className="flex-1 truncate">
+                            {t("familyAll")}
+                          </span>
+                          {!family ? (
+                            <Check className="size-4 text-primary" aria-hidden />
+                          ) : null}
+                        </CommandItem>
+                        {families
+                          .filter((f) => f.person)
+                          .map((f) => (
+                            <CommandItem
+                              key={f._id}
+                              value={`${f.name} ${f.person?.name ?? ""} ${f._id}`}
+                              onSelect={() => {
+                                setFamilyPicker(false);
+                                setQuery({
+                                  family: f._id,
+                                  branch: null,
+                                  from: null,
+                                  steps: null,
+                                  focus: null,
+                                });
+                              }}
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{f.name}</span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {f.person?.name}
+                                </span>
+                              </span>
+                              {f._id === family?._id ? (
+                                <Check
+                                  className="size-4 text-primary"
+                                  aria-hidden
+                                />
+                              ) : null}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            ) : null}
             {role !== "viewer" ? (
               <Button
                 size="sm"
@@ -539,19 +654,38 @@ function Canvas({ treeId }: { treeId: string }) {
                 <span className="hidden lg:inline">{t("addPerson")}</span>
               </Button>
             ) : null}
-            {role !== "viewer" && copySources.length ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                onClick={() => setCopying(true)}
-                aria-label={t("copyFromTree")}
-              >
-                <Copy className="size-4" aria-hidden />{" "}
-                <span className="hidden lg:inline">
-                  {t("copyFromTreeShort")}
-                </span>
-              </Button>
+            {role !== "viewer" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    aria-label={t("copyMenu")}
+                  >
+                    <Copy className="size-4" aria-hidden />{" "}
+                    <span className="hidden lg:inline">{t("copyMenu")}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {copySources.length ? (
+                    <DropdownMenuItem onSelect={() => setCopying(true)}>
+                      {t("copyFromTree")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      setCopyTreeOut({
+                        treeId,
+                        name: graph.tree.name,
+                        familyId: family?._id,
+                      })
+                    }
+                  >
+                    {t("copyToTree")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : null}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -599,7 +733,7 @@ function Canvas({ treeId }: { treeId: string }) {
         onFocus={(id) => setQuery({ focus: id, person: null, tab: null })}
         onAddRelative={(anchorId, kind) => setQuickAdd({ anchorId, kind })}
         onCopyOut={
-          copySources.length
+          role !== "viewer"
             ? (id, name) => setCopyOut({ treeId, personId: id, name })
             : undefined
         }
@@ -659,6 +793,12 @@ function Canvas({ treeId }: { treeId: string }) {
         fromPerson={copyOut ?? undefined}
         open={!!copyOut}
         onOpenChange={(open) => !open && setCopyOut(null)}
+      />
+      <CopyDialog
+        key={copyTreeOut ? `tree:${copyTreeOut.familyId ?? ""}` : "tree:none"}
+        fromTree={copyTreeOut ?? undefined}
+        open={!!copyTreeOut}
+        onOpenChange={(open) => !open && setCopyTreeOut(null)}
       />
       <AlertDialog
         open={!!deleteId}

@@ -81,7 +81,7 @@ export function useRelationships(treeId: string, id: string | null) {
 }
 
 export function useFamilies(treeId: string) {
-  return useQuery({ queryKey: keys.families(treeId), queryFn: () => api.get<Family[]>(`${t(treeId)}/families`) });
+  return useQuery({ queryKey: keys.families(treeId), queryFn: () => api.get<Family[]>(`${t(treeId)}/families`), enabled: !!treeId });
 }
 
 export function useMembers(treeId: string) {

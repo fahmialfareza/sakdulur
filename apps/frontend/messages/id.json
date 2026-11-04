@@ -168,7 +168,13 @@
     "cancel": "Batal",
     "copyFromTree": "Salin dari pohon lain",
     "copyToTree": "Salin ke pohon lain",
-    "copyFromTreeShort": "Salin dari pohon"
+    "copyFromTreeShort": "Salin dari pohon",
+    "family": "Keluarga",
+    "familyAll": "Semua keluarga",
+    "familySearch": "Cari keluarga…",
+    "familyNone": "Keluarga tidak ditemukan.",
+    "familyBanner": "Menampilkan {name}",
+    "copyMenu": "Salin"
   },
   "drawer": {
     "loading": "Memuat…",
@@ -310,7 +316,8 @@
     "deleted": "Keluarga dihapus.",
     "emptyTitle": "Belum ada keluarga",
     "emptyBody": "Kelompokkan rumah tangga atau cabang agar mudah ditemukan.",
-    "children": "{count, plural, other {# anak}}"
+    "children": "{count, plural, other {# anak}}",
+    "copy": "Salin {name} ke pohon lain"
   },
   "members": {
     "title": "Anggota",
@@ -573,6 +580,10 @@
       "nearby": {
         "title": "Keluarga dekat",
         "body": "Semua dalam beberapa langkah hubungan"
+      },
+      "all": {
+        "title": "Seluruh pohon",
+        "body": "Semua orang di pohon, berhubungan atau tidak"
       }
     },
     "steps": "Langkah",
@@ -595,7 +606,18 @@
     "noTargets": "Anda perlu menjadi pemilik atau editor pohon lain untuk menyalin ke sana.",
     "toTree": "Salin ke",
     "doneTo": "{created} orang disalin ke {tree}{updated, plural, =0 {} other {, # diperbarui}}.",
-    "openTree": "Buka"
+    "openTree": "Buka",
+    "titleFromTree": "Salin dari {name} ke pohon lain",
+    "descriptionFromTree": "Salin cabang seseorang, satu keluarga, atau seluruh pohon ke pohon lain yang Anda miliki atau sunting, atau ke pohon baru.",
+    "startPerson": "Orang",
+    "startFamily": "Keluarga",
+    "searchFamily": "Cari keluarga…",
+    "noFamilies": "Tidak ada keluarga yang dapat Anda salin di sini.",
+    "howMuch": "Seberapa banyak yang disalin?",
+    "newTree": "Pohon baru…",
+    "newTreeName": "Nama pohon baru",
+    "newTreeDefault": "{name} (salinan)",
+    "tooMany": "Lebih dari {max} orang; pilih cabang yang lebih kecil."
   },
   "assistant": {
     "nav": "Tanya",

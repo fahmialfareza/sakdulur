@@ -213,3 +213,44 @@ func TestCopyIntoBranchScopedDestination(t *testing.T) {
 		t.Errorf("owner import: %v", d)
 	}
 }
+
+func TestCopyWholeTree(t *testing.T) {
+	resetDB(t)
+	// Someone with no relatives yet: a whole-tree copy takes them too.
+	if err := DB.Exec(`INSERT INTO people (id, tree_id, name, status, gender) VALUES ('p-a9', ?, 'A Alone', 'alive', 'male')`, treeA).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := DB.Exec("INSERT INTO person_owners (person_id, user_id) VALUES ('p-a9', ?)", alice).Error; err != nil {
+		t.Fatal(err)
+	}
+	dest := newTreeFor(t, alice, "Copy of A")
+
+	// Only "all" may leave out the person.
+	if res := call(t, alice, "POST", "/api/trees/"+dest+"/import", importBody(treeA, "", "descendants", nil)); res.Status != 400 {
+		t.Errorf("descendants without a person: %d", res.Status)
+	}
+
+	preview := call(t, alice, "POST", "/api/trees/"+dest+"/import", importBody(treeA, "", "all", map[string]any{"dryRun": true}))
+	if preview.Status != 200 || dataMap(preview)["created"].(float64) != 3 {
+		t.Fatalf("preview: %d %v", preview.Status, preview.Body)
+	}
+	res := call(t, alice, "POST", "/api/trees/"+dest+"/import", importBody(treeA, "", "all", nil))
+	d := dataMap(res)
+	if res.Status != 201 || d["created"].(float64) != 3 || str(d, "rootId") != "" {
+		t.Fatalf("import: %d %v", res.Status, res.Body)
+	}
+	g := dataMap(call(t, alice, "GET", "/api/trees/"+dest+"/graph", nil))
+	if people, _ := g["people"].([]any); len(people) != 3 {
+		t.Errorf("graph people = %v", g["people"])
+	}
+	if unions, _ := g["unions"].([]any); len(unions) != 1 {
+		t.Errorf("graph unions = %v", g["unions"])
+	}
+
+	// A branch-scoped editor's whole-tree copy skips people not shared with them.
+	bobsTree := newTreeFor(t, bob, "Bob's copy")
+	bobRes := dataMap(call(t, bob, "POST", "/api/trees/"+bobsTree+"/import", importBody(treeA, "", "all", nil)))
+	if bobRes["created"].(float64) != 1 || bobRes["skipped"].(float64) != 2 {
+		t.Errorf("branch-scoped whole-tree copy: %v", bobRes)
+	}
+}
