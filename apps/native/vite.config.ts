@@ -3,6 +3,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, normalizePath, type Plugin } from "vite";
+import en from "../frontend/messages/en.json" with { type: "json" };
 import pkg from "./package.json" with { type: "json" };
 
 // The app's screens are apps/frontend's components (imported through "@/"). Next.js-only modules are swapped for
@@ -33,15 +34,30 @@ const webOverrides: Record<string, string> = {
   [normalizePath(here("src/env.ts"))]: normalizePath(here("src/web/env.ts")),
 };
 
-/** The website build's page head: its icons and manifest (the app's come from src-tauri). */
-function webHead(): Plugin {
+/**
+ * The website build's page head: its icons and manifest (the app's come from src-tauri), and the site's link preview
+ * (the public pages' description and OG image), so invite and app links shared in chats still show it. Not indexed:
+ * robots.txt keeps crawlers out of the app's paths anyway.
+ */
+function webHead(siteUrl: string): Plugin {
+  const meta = (attrs: Record<string, string>) => ({ tag: "meta", attrs, injectTo: "head" as const });
+  const { title, description } = en.meta;
   return {
     name: "sakdulur-web-head",
     transformIndexHtml: () => [
       { tag: "link", attrs: { rel: "icon", href: "/icon", type: "image/png" }, injectTo: "head" },
       { tag: "link", attrs: { rel: "apple-touch-icon", href: "/apple-icon.png" }, injectTo: "head" },
       { tag: "link", attrs: { rel: "manifest", href: "/manifest.webmanifest" }, injectTo: "head" },
-      { tag: "meta", attrs: { name: "robots", content: "noindex" }, injectTo: "head" },
+      meta({ name: "robots", content: "noindex" }),
+      meta({ name: "description", content: description }),
+      meta({ property: "og:title", content: title }),
+      meta({ property: "og:description", content: description }),
+      meta({ property: "og:site_name", content: "Sakdulur" }),
+      meta({ property: "og:type", content: "website" }),
+      meta({ property: "og:image", content: `${siteUrl}/opengraph-image` }),
+      meta({ property: "og:image:width", content: "1200" }),
+      meta({ property: "og:image:height", content: "630" }),
+      meta({ name: "twitter:card", content: "summary_large_image" }),
     ],
   };
 }
@@ -80,7 +96,7 @@ export default defineConfig(({ command, mode }) => {
     base: web ? "/app-shell/" : "/",
     plugins: [
       appOverrides(web ? webOverrides : nativeOverrides),
-      ...(web ? [webHead()] : []),
+      ...(web ? [webHead(siteUrl)] : []),
       react(),
       tailwindcss(),
       ...(uploadSourceMaps
