@@ -69,7 +69,7 @@ jobs:
           java-version: "21"
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           # The default ("tools platform-tools") fails: the legacy "tools" package is gone.
           packages: platform-tools
