@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -73,7 +73,7 @@ import { errorMessage } from "@/lib/api/client";
 import { ExportDialog } from "@/components/export/export-dialog";
 import { useDeletePerson, useGraph } from "@/lib/api/hooks";
 import { isBranchScope, selectBranch } from "@/lib/branch";
-import { saveFile } from "@/lib/native";
+import { nativePlatform, saveFile } from "@/lib/native";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useOnlineRole } from "@/lib/offline";
 import {
@@ -135,6 +135,7 @@ function Canvas({ treeId }: { treeId: string }) {
   const te = useTranslations("export");
   const pathname = usePathname();
   const params = useSearchParams();
+  const router = useRouter();
   const wide = useMediaQuery("(min-width: 1024px)", true);
   const { data: graph, isLoading, error, dataUpdatedAt } = useGraph(treeId);
   const { fitView, setCenter, getNodes } = useReactFlow();
@@ -217,11 +218,15 @@ function Canvas({ treeId }: { treeId: string }) {
         if (v === null) next.delete(k);
         else next.set(k, v);
       }
+      const url = `${pathname}?${next.toString()}`;
+      // The app's router (react-router) never sees a bare history.replaceState, so the drawer's tabs and close did
+      // nothing there; its replace is client-side only.
+      if (nativePlatform() !== "web") return router.replace(url, { scroll: false });
       // The browser's own history (Next.js keeps useSearchParams in step): the tree page's server part doesn't use
       // these, so there's nothing to ask the server, which also keeps people opening while offline.
-      window.history.replaceState(null, "", `${pathname}?${next.toString()}`);
+      window.history.replaceState(null, "", url);
     },
-    [params, pathname],
+    [params, pathname, router],
   );
 
   useEffect(() => {
