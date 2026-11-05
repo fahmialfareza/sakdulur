@@ -1,10 +1,12 @@
 # Store listings for App Store Connect (iPhone, iPad, Mac) and Google Play, in Indonesian and English.
 # Text: fastlane/metadata/{apple,android}/<locale>/*.txt. Screenshots: fastlane/screenshots/{ios,mac}/<locale>
 # and fastlane/metadata/android/<locale>/images. Store builds are uploaded by the GitHub release workflows
-# (apps/native/RELEASE.md); these lanes never upload a binary and never submit for review.
+# (apps/native/RELEASE.md); these lanes never upload a binary. Only apple_submit submits for review.
 #
-#   fastlane apple                          # iPhone/iPad and Mac: text, screenshots, category, age rating, review info
-#   fastlane apple platform:ios what:text   # platform ios|mac|both, what text|screenshots|both
+#   fastlane apple version:1.1.4            # iPhone/iPad and Mac: text, screenshots, category, age rating, review info
+#   fastlane apple version:1.1.4 platform:ios what:text   # platform ios|mac|both, what text|screenshots|both
+#   fastlane apple_submit build:114         # What's New (the Play notes for that build), attach the build, submit
+#   fastlane apple_submit build:114 platform:ios submit:false   # everything but the submission
 #   fastlane apple_pricing                  # make the app free (once)
 #   fastlane play                           # Google Play: listing text, graphics, screenshots, contact details
 #   fastlane play what:text                 # what text|screenshots|notes|both (both = text + screenshots)
@@ -16,9 +18,11 @@
 #   PLAY_JSON_KEY                             Google Play service account JSON (~/.config/play/sakdulur-play.json)
 #   SAKDULUR_DEMO_ACCOUNT                     file with the review demo account ("email: …" / "password: …")
 
+require "fileutils"
 require "json"
 require "net/http"
 require "openssl"
+require "tmpdir"
 
 # Homebrew's Ruby may lack a default CA file ("certificate verify failed"); use Homebrew's bundle (as Dzikir App).
 HOMEBREW_CA = "/opt/homebrew/etc/ca-certificates/cert.pem"
@@ -29,7 +33,6 @@ end
 
 ROOT = File.expand_path("..", __dir__)
 FL = File.join(ROOT, "fastlane")
-APP_VERSION = "1.0.0" # App Store version; must match the builds' CFBundleShortVersionString
 SUPPORT_EMAIL = "fahmialfareza97@gmail.com"
 WEBSITE = "https://sakdulur.com"
 
@@ -37,6 +40,30 @@ def env!(name)
   value = ENV[name].to_s
   UI.user_error!("Set #{name} (see the top of fastlane/Fastfile)") if value.empty?
   value
+end
+
+# The App Store version of a build, as scripts/release-native.mjs derives it (114 = 1.1.4), or version:1.2.3.
+def app_version(options)
+  version = options[:version].to_s
+  return version unless version.empty?
+  build = options[:build].to_s
+  UI.user_error!("Pass version:1.2.3 (or build:123)") unless build.match?(/\A[1-9]\d*\z/)
+  n = build.to_i
+  "#{n / 100}.#{(n % 100) / 10}.#{n % 10}"
+end
+
+# What's New for a build: the same text as its Play release notes (metadata/android/<locale>/changelogs/<build>.txt,
+# else default.txt), in a folder deliver reads as metadata (only release_notes.txt, so nothing else changes).
+def release_notes_metadata(build)
+  dir = Dir.mktmpdir("sakdulur-release-notes")
+  { "en-US" => "en-US", "id" => "id" }.each do |play, apple|
+    changelogs = File.join(FL, "metadata", "android", play, "changelogs")
+    file = [File.join(changelogs, "#{build}.txt"), File.join(changelogs, "default.txt")].find { |f| File.exist?(f) }
+    UI.user_error!("No release notes for #{play}: write #{changelogs}/#{build}.txt") unless file
+    FileUtils.mkdir_p(File.join(dir, apple))
+    File.write(File.join(dir, apple, "release_notes.txt"), File.read(file).strip)
+  end
+  dir
 end
 
 def asc_api_key
@@ -61,6 +88,7 @@ lane :apple do |options|
   UI.user_error!("platform must be ios, mac or both") unless platforms
   what = options[:what] || "both"
   UI.user_error!("what must be text, screenshots or both") unless %w[text screenshots both].include?(what)
+  version = app_version(options)
   api_key = asc_api_key
   email, password = demo_account
 
@@ -70,11 +98,11 @@ lane :apple do |options|
 
   platforms.each do |platform|
     screenshots = File.join(FL, "screenshots", platform == "osx" ? "mac" : "ios")
-    UI.header("#{platform == 'osx' ? 'macOS' : 'iOS'} #{APP_VERSION}: #{what}")
+    UI.header("#{platform == 'osx' ? 'macOS' : 'iOS'} #{version}: #{what}")
     deliver(
       api_key: api_key,
       platform: platform,
-      app_version: APP_VERSION,
+      app_version: version,
       metadata_path: File.join(FL, "metadata", "apple"),
       screenshots_path: screenshots,
       skip_metadata: what == "screenshots",
@@ -99,27 +127,31 @@ lane :apple do |options|
   end
 end
 
-# Attaches a processed build to the App Store version and submits it for App Review (listing unchanged).
-#   fastlane apple_submit build:101 platform:ios|mac|both
+# Sets the version's What's New (the Play notes for the build), attaches the processed build and submits it for App
+# Review; the rest of the listing is unchanged. The version (114 = 1.1.4) is created when App Store Connect has none.
+#   fastlane apple_submit build:114 platform:ios|mac|both submit:true|false
 lane :apple_submit do |options|
   build = options[:build].to_s
-  UI.user_error!("Pass the build number, e.g. build:101") if build.empty?
+  UI.user_error!("Pass the build number, e.g. build:114") if build.empty?
+  version = app_version(options)
   platforms = { "ios" => ["ios"], "mac" => ["osx"], "both" => %w[ios osx] }[options[:platform] || "both"]
   UI.user_error!("platform must be ios, mac or both") unless platforms
+  submit = options[:submit].to_s != "false"
+  notes = release_notes_metadata(build)
   api_key = asc_api_key
   platforms.each do |platform|
-    UI.header("#{platform == 'osx' ? 'macOS' : 'iOS'} #{APP_VERSION} (#{build}): submit for review")
+    UI.header("#{platform == 'osx' ? 'macOS' : 'iOS'} #{version} (#{build}): What's New#{submit ? ', submit for review' : ''}")
     deliver(
       api_key: api_key,
       platform: platform,
-      app_version: APP_VERSION,
+      app_version: version,
       build_number: build,
-      metadata_path: File.join(FL, "metadata", "apple"),
+      metadata_path: notes,
       screenshots_path: File.join(FL, "screenshots", platform == "osx" ? "mac" : "ios"),
       skip_binary_upload: true,
-      skip_metadata: true,
+      skip_metadata: false,
       skip_screenshots: true,
-      submit_for_review: true,
+      submit_for_review: submit,
       automatic_release: false,
       submission_information: {
         add_id_info_uses_idfa: false,
