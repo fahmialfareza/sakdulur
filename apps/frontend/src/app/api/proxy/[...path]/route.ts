@@ -18,7 +18,8 @@ const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "accept-language", 
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "x-request-id"];
 // The /api/auth endpoints page code may use. The others answer with tokens (login, refresh, legacy GET /api/auth,
 // ...): those go through /api/session/*, which keeps them in httpOnly cookies.
-const AUTH_PATHS = new Set(["resend-verification", "forgot-password", "reset-password", "change-password", "sessions", "logout-all"]);
+// "providers" (which sign-ins the API offers) is what the app's sign-in pages ask for.
+const AUTH_PATHS = new Set(["providers", "resend-verification", "forgot-password", "reset-password", "change-password", "sessions", "logout-all"]);
 
 async function forward(req: NextRequest, path: string[], body: ArrayBuffer | undefined, token?: string) {
   const url = new URL(`${serverEnv.backendUrl}/${path.map(encodeURIComponent).join("/")}`);

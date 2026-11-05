@@ -164,7 +164,8 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
 const FORWARDED_REQUEST_HEADERS = ["content-type", "accept", "accept-language", "user-agent"];
 const FORWARDED_RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control", "x-request-id"];
 // The /api/auth endpoints page code may use; the others answer with tokens and go through /api/session/*.
-const AUTH_PATHS = new Set(["resend-verification", "forgot-password", "reset-password", "change-password", "sessions", "logout-all"]);
+// "providers" (which sign-ins the API offers) is what the app's sign-in pages ask for.
+const AUTH_PATHS = new Set(["providers", "resend-verification", "forgot-password", "reset-password", "change-password", "sessions", "logout-all"]);
 
 /** /api/proxy/<path> -> the API's /<path>, with the session's bearer token; refreshes it once when needed. */
 async function proxy(req: Request, env: Env, url: URL): Promise<Response> {
