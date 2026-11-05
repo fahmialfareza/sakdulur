@@ -1,0 +1,4 @@
+• Take a person's photo with the camera
+• Tapping someone on the tree opens their details again, and the details' tabs and close button work
+• Families: open a family to see only them, or pick one on the tree
+• Copy a person's branch, a family or the whole tree to another tree or to a new one

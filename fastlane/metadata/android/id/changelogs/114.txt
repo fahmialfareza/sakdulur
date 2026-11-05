@@ -1,0 +1,4 @@
+• Ambil foto seseorang langsung dengan kamera
+• Mengetuk seseorang di pohon kembali membuka detailnya, dan tab serta tombol tutupnya berfungsi
+• Keluarga: buka satu keluarga untuk melihat hanya mereka, atau pilih di pohon
+• Salin cabang seseorang, satu keluarga, atau seluruh pohon ke pohon lain atau pohon baru
