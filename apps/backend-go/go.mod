@@ -1,15 +1,15 @@
 module github.com/fahmialfareza/family-tree/backend
 
-go 1.26.0
+go 1.26.10
 
 require (
 	github.com/cloudinary/cloudinary-go/v2 v2.16.1
 	github.com/coreos/go-oidc/v3 v3.21.0
-	github.com/gin-contrib/cors v1.7.9
-	github.com/gin-contrib/gzip v1.2.8
+	github.com/gin-contrib/cors v1.7.10
+	github.com/gin-contrib/gzip v1.2.9
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.11.0
+	github.com/jackc/pgx/v5 v5.12.0
 	github.com/newrelic/go-agent/v3/integrations/nrgin v1.4.2
 	github.com/newrelic/go-agent/v3/integrations/nrpgx5 v1.3.4
 	github.com/newrelic/go-agent/v3/integrations/nrredis-v9 v1.1.2
