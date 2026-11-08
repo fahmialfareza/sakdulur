@@ -5,7 +5,15 @@
 import { BRAND } from "./brand";
 import type { GuideSlug } from "./guides";
 
-export type GuideSection = { h: string; p?: string[]; list?: string[]; table?: { head: string[]; rows: string[][] } };
+/** The example family's diagram (components/marketing/example-tree.tsx): its description and, per generation, a label and role. */
+export type ExampleTreeFigure = { label: string; generations: [string, string][] };
+export type GuideSection = {
+  h: string;
+  p?: string[];
+  list?: string[];
+  table?: { head: string[]; rows: string[][] };
+  figure?: ExampleTreeFigure;
+};
 export type Guide = {
   slug: GuideSlug;
   title: string;
@@ -19,6 +27,8 @@ export type Guide = {
 };
 
 const PUBLISHED = "2026-11-01";
+// Titles and descriptions retuned to the searches the guides were shown for (Search Console, first two weeks).
+const RETUNED = "2026-11-09";
 
 // Javanese generation names, the same word up (ancestors) and down (descendants) from you.
 const javaneseGenerations = [
@@ -118,6 +128,106 @@ function guidesEn(): Guide[] {
       ],
     },
     {
+      slug: "contoh-silsilah-keluarga",
+      title: "Family tree example: a 4-generation chart and how to read it",
+      description:
+        "An example family tree chart over four generations, from great-grandparents to grandchildren, how to read it, the same family written as a numbered list, and what to record for each person.",
+      published: RETUNED,
+      updated: RETUNED,
+      intro:
+        "The quickest way to understand a family tree chart (bagan silsilah) is to read one. Below is an example family over four generations, how to read it, the same family written as a numbered list for a family book, and a template for your own.",
+      sections: [
+        {
+          h: "1. Example: a 4-generation family tree",
+          figure: {
+            label:
+              "Example family tree over four generations: Kromo Sentono and Painem; their son Hasan and his wife Siti; Hasan and Siti's sons Ahmad and Budi, with Ahmad's wife Dewi; and Ahmad and Dewi's children Rani and Bayu.",
+            generations: [
+              ["Generation 1", "great-grandparents"],
+              ["Generation 2", "grandparents"],
+              ["Generation 3", "parents"],
+              ["Generation 4", "children"],
+            ],
+          },
+          p: [
+            "Kromo Sentono and Painem are the eldest couple. Their son Hasan married Siti; they had two sons, Ahmad and Budi. Ahmad married Dewi, and their children are Rani and Bayu. The table above names each generation as seen from Rani and Bayu (in Javanese, Kromo Sentono and Painem are their buyut).",
+          ],
+          table: {
+            head: ["Person", "Generation", "Relation to Rani"],
+            rows: [
+              ["Kromo Sentono (1905–1978), Painem (1910–1985)", "1", "great-grandparents (Javanese: buyut)"],
+              ["Hasan (1938–2011), Siti (1942–2019)", "2", "grandparents (Indonesian: kakek, nenek; Javanese: mbah, eyang)"],
+              ["Ahmad (1965), Dewi (1968)", "3", "father and mother"],
+              ["Budi (1966)", "3", "uncle: father's younger brother (Javanese: paklik)"],
+              ["Bayu (1997)", "4", "younger brother (adik)"],
+            ],
+          },
+        },
+        {
+          h: "2. How to read a family tree chart",
+          list: [
+            "Each row is one generation; the eldest is at the top.",
+            "A couple sits side by side, joined by a line or a dot.",
+            "Children hang from the line under their own parents, eldest usually first.",
+            "Each box shows a name and years; a single year means the person is alive, two years are birth and death.",
+            "Spouses who married into the family (like Siti and Dewi) have no line upward: their own parents belong to their own family's tree.",
+          ],
+        },
+        {
+          h: "3. Remarriages, adopted and step children",
+          p: [
+            "Real families are rarely this tidy. If Hasan had married twice, both wives would sit next to him and each child would hang under the right mother. Adopted, foster or step children hang under the parents who raised them, with the kind of parent noted, so nobody is left out or counted twice.",
+          ],
+        },
+        {
+          h: "4. The same family as a numbered list",
+          p: [
+            "For a family book or a trah reunion booklet, a silsilah is often written as a numbered list: each person gets the parent's number plus their own birth order, so the number shows the line of descent.",
+          ],
+          list: [
+            "1. Kromo Sentono (1905–1978) + Painem (1910–1985)",
+            "1.1. Hasan (1938–2011) + Siti (1942–2019)",
+            "1.1.1. Ahmad (1965) + Dewi (1968)",
+            "1.1.1.1. Rani (1994)",
+            "1.1.1.2. Bayu (1997)",
+            "1.1.2. Budi (1966)",
+          ],
+        },
+        {
+          h: "5. Template: what to record for each person",
+          list: [
+            "Full name and the name people used.",
+            "Year or date of birth, and of death (an approximate year is fine).",
+            "Place of birth and where they live or lived.",
+            "Parents, and whether birth, adoptive, step or foster.",
+            "Spouses, in order, with marriage (and divorce) years.",
+            "Children, eldest first.",
+            "A photo and a short note: work, stories, where they are buried.",
+          ],
+        },
+        {
+          h: "6. Make your own family tree chart",
+          p: [
+            `In ${BRAND} you add people and how they are related, and the chart is drawn for you: couples side by side, children under their own parents, generations in rows. Relatives can add their own branches, and you can print the tree, save it as a PDF or image, or export it as Excel or GEDCOM. It is free and private, in the browser or as an app.`,
+          ],
+        },
+      ],
+      faq: [
+        {
+          q: "What does a family tree chart contain?",
+          a: "Names, birth and death years, and the lines that join couples and connect children to their parents, one generation per row. Photos, places and notes are optional.",
+        },
+        {
+          q: "How many generations should a family tree example show?",
+          a: "Three or four generations (great-grandparents down to the youngest children) is enough to show how a family tree works; real trees grow as relatives add more.",
+        },
+        {
+          q: "How do I write a family tree as a list?",
+          a: "Number the eldest couple 1, their children 1.1, 1.2 and so on, and each grandchild with the parent's number plus their own birth order (1.1.1). The number then shows the whole line of descent.",
+        },
+      ],
+    },
+    {
       slug: "trah-dan-bani",
       title: "Trah and bani: organizing a large extended-family tree",
       description:
@@ -192,11 +302,11 @@ function guidesEn(): Guide[] {
     },
     {
       slug: "istilah-kekerabatan",
-      title: "Indonesian and Javanese kinship terms explained",
+      title: "Javanese generation names and Indonesian kinship terms (buyut, canggah, wareng, udheg-udheg)",
       description:
-        "What buyut, canggah, wareng, udheg-udheg, ipar, besan, pakdhe and misanan mean: Indonesian and Javanese family terms for every generation, with English equivalents.",
+        "The Javanese generations in order: anak, putu, buyut, canggah, wareng, udheg-udheg, gantung siwur, gropak senthe, debog bosok, galih asem. Plus ipar, besan, pakdhe, misanan and other Indonesian family terms, with English equivalents.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: RETUNED,
       intro:
         "Indonesian and Javanese have their own words for relatives, and Javanese names every generation up to ten above and below you. This reference lists the common terms with their English equivalents, so you can label a family tree correctly.",
       sections: [
@@ -300,11 +410,11 @@ function guidesEn(): Guide[] {
     },
     {
       slug: "gedcom",
-      title: "What is GEDCOM? Exporting your family tree",
+      title: "What is a GEDCOM (.ged) file? How to export a family tree to GEDCOM",
       description:
-        "GEDCOM is the standard file format for moving a family tree between genealogy apps. What it contains, which apps read it, and how to export your tree from Sakdulur as GEDCOM, Excel or JSON.",
+        "A GEDCOM (.ged) file is the standard format for moving a family tree between genealogy apps such as MyHeritage, Ancestry, FamilySearch and Gramps. What it contains, and how to export your tree as GEDCOM, Excel or JSON.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: RETUNED,
       intro:
         "GEDCOM (GEnealogical Data COMmunication) is the common file format of family tree software. A .ged file holds people, families and how they are related, so a tree made in one app can be opened in another. This guide explains what it contains and how to export your tree.",
       sections: [
@@ -369,11 +479,11 @@ function guidesId(): Guide[] {
   return [
     {
       slug: "cara-membuat-silsilah-keluarga",
-      title: "Cara membuat silsilah keluarga: panduan langkah demi langkah",
+      title: "Cara membuat silsilah keluarga (pohon keluarga): langkah mudah untuk pemula",
       description:
-        "Panduan praktis membuat silsilah keluarga: data apa yang dikumpulkan, siapa yang ditanya, cara mencatat tanggal dan tempat yang hanya diingat samar, dan cara menyusunnya bersama keluarga.",
+        "Cara membuat silsilah keluarga dalam 8 langkah: mulai dari diri sendiri, kumpulkan nama, tanggal, dan tempat, tanyakan kepada sesepuh, catat hubungan dengan tepat, lalu susun pohon keluarga bersama kerabat.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: RETUNED,
       intro:
         "Silsilah keluarga berawal dari apa yang sudah Anda ketahui dan bertambah setiap kali Anda bertanya kepada kerabat. Panduan ini membahasnya langkah demi langkah, dari nama-nama pertama di kertas hingga pohon keluarga yang bisa dilihat dan dilengkapi seluruh keluarga.",
       sections: [
@@ -445,6 +555,110 @@ function guidesId(): Guide[] {
         {
           q: "Apakah ada aplikasi gratis untuk membuat silsilah keluarga?",
           a: `Ada. ${BRAND} gratis, tanpa iklan, dan bisa dipakai di browser maupun sebagai aplikasi iPhone, iPad, Android, Mac, Windows, dan Linux, dalam Bahasa Indonesia dan Inggris.`,
+        },
+      ],
+    },
+    {
+      slug: "contoh-silsilah-keluarga",
+      title: "Contoh silsilah keluarga: bagan 4 generasi dan cara membacanya",
+      description:
+        "Contoh bagan silsilah keluarga 4 generasi, dari buyut sampai cucu, cara membacanya, contoh silsilah dalam bentuk daftar bernomor, dan data yang perlu dicatat untuk setiap orang.",
+      published: RETUNED,
+      updated: RETUNED,
+      intro:
+        "Cara paling cepat memahami bagan silsilah keluarga adalah dengan membaca contohnya. Di bawah ini ada contoh keluarga empat generasi, cara membacanya, keluarga yang sama dalam bentuk daftar bernomor untuk buku keluarga, dan templat untuk silsilah Anda sendiri.",
+      sections: [
+        {
+          h: "1. Contoh bagan silsilah keluarga 4 generasi",
+          figure: {
+            label:
+              "Contoh silsilah keluarga empat generasi: Kromo Sentono dan Painem; anak mereka Hasan dan istrinya Siti; anak Hasan dan Siti, yaitu Ahmad dan Budi, serta istri Ahmad, Dewi; dan anak Ahmad dan Dewi, yaitu Rani dan Bayu.",
+            generations: [
+              ["Generasi 1", "buyut"],
+              ["Generasi 2", "kakek, nenek (mbah)"],
+              ["Generasi 3", "bapak, ibu"],
+              ["Generasi 4", "anak"],
+            ],
+          },
+          p: [
+            "Kromo Sentono dan Painem adalah pasangan tertua. Anak mereka, Hasan, menikah dengan Siti dan punya dua anak laki-laki, Ahmad dan Budi. Ahmad menikah dengan Dewi, dan anak mereka adalah Rani dan Bayu. Tabel di atas menunjukkan sebutan setiap generasi dilihat dari Rani dan Bayu.",
+          ],
+          table: {
+            head: ["Orang", "Generasi", "Hubungan dengan Rani"],
+            rows: [
+              ["Kromo Sentono (1905–1978), Painem (1910–1985)", "1", "buyut (kakek dan nenek buyut)"],
+              ["Hasan (1938–2011), Siti (1942–2019)", "2", "kakek dan nenek (mbah, eyang)"],
+              ["Ahmad (1965), Dewi (1968)", "3", "bapak dan ibu"],
+              ["Budi (1966)", "3", "paman, adik bapak (paklik, om)"],
+              ["Bayu (1997)", "4", "adik"],
+            ],
+          },
+        },
+        {
+          h: "2. Cara membaca bagan silsilah keluarga",
+          list: [
+            "Setiap baris adalah satu generasi; yang tertua di paling atas.",
+            "Pasangan suami istri berdampingan, dihubungkan dengan garis atau titik.",
+            "Anak-anak bergantung pada garis di bawah orang tuanya sendiri, biasanya dari yang tertua.",
+            "Setiap kotak berisi nama dan tahun; satu tahun berarti masih hidup, dua tahun berarti tahun lahir dan wafat.",
+            "Menantu yang masuk ke keluarga (seperti Siti dan Dewi) tidak punya garis ke atas: orang tua mereka masuk silsilah keluarganya sendiri.",
+          ],
+        },
+        {
+          h: "3. Pernikahan kedua, anak angkat, dan anak tiri",
+          p: [
+            "Keluarga sebenarnya jarang serapi ini. Jika Hasan menikah dua kali, kedua istrinya berada di sampingnya dan setiap anak bergantung di bawah ibunya masing-masing. Anak angkat, anak asuh, atau anak tiri bergantung di bawah orang tua yang membesarkannya, dengan jenis hubungannya dicatat, supaya tidak ada yang terlewat atau tercatat dua kali.",
+          ],
+        },
+        {
+          h: "4. Contoh silsilah dalam bentuk daftar bernomor",
+          p: [
+            "Untuk buku keluarga atau buku pertemuan trah, silsilah sering ditulis sebagai daftar bernomor: setiap orang mendapat nomor orang tuanya ditambah urutan kelahirannya, sehingga nomornya menunjukkan garis keturunan.",
+          ],
+          list: [
+            "1. Kromo Sentono (1905–1978) + Painem (1910–1985)",
+            "1.1. Hasan (1938–2011) + Siti (1942–2019)",
+            "1.1.1. Ahmad (1965) + Dewi (1968)",
+            "1.1.1.1. Rani (1994)",
+            "1.1.1.2. Bayu (1997)",
+            "1.1.2. Budi (1966)",
+          ],
+        },
+        {
+          h: "5. Templat: data yang dicatat untuk setiap orang",
+          list: [
+            "Nama lengkap dan nama panggilan.",
+            "Tahun atau tanggal lahir, dan wafat (tahun perkiraan pun tidak apa-apa).",
+            "Tempat lahir dan tempat tinggal.",
+            "Orang tua, serta jenisnya: kandung, angkat, tiri, atau asuh.",
+            "Pasangan, berurutan, dengan tahun menikah (dan bercerai).",
+            "Anak-anak, dari yang tertua.",
+            "Foto dan catatan singkat: pekerjaan, kisah, tempat dimakamkan.",
+          ],
+        },
+        {
+          h: "6. Buat bagan silsilah keluarga Anda sendiri",
+          p: [
+            `Di ${BRAND}, Anda cukup menambahkan orang dan hubungannya, dan bagannya tersusun sendiri: pasangan berdampingan, anak di bawah orang tuanya, setiap generasi dalam satu baris. Kerabat bisa menambahkan cabangnya sendiri, dan pohonnya bisa dicetak, disimpan sebagai PDF atau gambar, atau diekspor sebagai Excel atau GEDCOM. Gratis dan privat, di browser maupun sebagai aplikasi.`,
+          ],
+        },
+      ],
+      faq: [
+        {
+          q: "Apa isi bagan silsilah keluarga?",
+          a: "Nama, tahun lahir dan wafat, serta garis yang menghubungkan pasangan dan menghubungkan anak dengan orang tuanya, satu generasi per baris. Foto, tempat, dan catatan bersifat tambahan.",
+        },
+        {
+          q: "Berapa generasi yang sebaiknya ada di contoh silsilah keluarga?",
+          a: "Tiga atau empat generasi (dari buyut sampai anak-anak termuda) sudah cukup untuk menunjukkan cara kerja silsilah; silsilah sebenarnya bertambah seiring kerabat melengkapinya.",
+        },
+        {
+          q: "Bagaimana cara menulis silsilah keluarga dalam bentuk daftar?",
+          a: "Beri nomor 1 untuk pasangan tertua, 1.1, 1.2, dan seterusnya untuk anak-anaknya, lalu setiap cucu mendapat nomor orang tuanya ditambah urutan kelahirannya (1.1.1). Nomor itu menunjukkan seluruh garis keturunan.",
+        },
+        {
+          q: "Bagaimana membuat bagan silsilah keluarga di HP?",
+          a: `Pakai ${BRAND} di browser ponsel mana pun, atau pasang aplikasinya. Tambahkan orang dan hubungannya, dan bagannya tersusun sendiri; hasilnya bisa disimpan sebagai gambar atau PDF untuk dibagikan.`,
         },
       ],
     },
@@ -523,11 +737,11 @@ function guidesId(): Guide[] {
     },
     {
       slug: "istilah-kekerabatan",
-      title: "Istilah kekerabatan dalam bahasa Indonesia dan Jawa",
+      title: "Urutan silsilah Jawa dan istilah kekerabatan: anak, putu, buyut, canggah, wareng, udheg-udheg",
       description:
-        "Arti buyut, canggah, wareng, udheg-udheg, ipar, besan, pakdhe, dan misanan: istilah keluarga bahasa Indonesia dan Jawa untuk setiap generasi, lengkap dengan padanan bahasa Inggris.",
+        "Urutan generasi dalam bahasa Jawa: anak, putu, buyut, canggah, wareng, udheg-udheg, gantung siwur, gropak senthe, debog bosok, galih asem. Lengkap dengan arti ipar, besan, pakdhe, misanan, dan istilah keluarga lainnya.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: RETUNED,
       intro:
         "Bahasa Indonesia dan bahasa Jawa punya sebutan sendiri untuk kerabat, dan bahasa Jawa menamai setiap generasi hingga sepuluh tingkat ke atas dan ke bawah. Rujukan ini memuat istilah yang umum beserta padanan bahasa Inggrisnya, supaya silsilah keluarga bisa diberi keterangan dengan tepat.",
       sections: [
@@ -631,11 +845,11 @@ function guidesId(): Guide[] {
     },
     {
       slug: "gedcom",
-      title: "Apa itu GEDCOM? Cara mengekspor silsilah keluarga",
+      title: "Apa itu file GEDCOM (.ged)? Cara ekspor silsilah keluarga",
       description:
-        "GEDCOM adalah format file standar untuk memindahkan silsilah keluarga antaraplikasi. Isinya, aplikasi yang bisa membukanya, dan cara mengekspor pohon dari Sakdulur sebagai GEDCOM, Excel, atau JSON.",
+        "File GEDCOM (.ged) adalah format standar untuk memindahkan silsilah keluarga antaraplikasi seperti MyHeritage, Ancestry, FamilySearch, dan Gramps. Isinya, dan cara mengekspor pohon sebagai GEDCOM, Excel, atau JSON.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: RETUNED,
       intro:
         "GEDCOM (GEnealogical Data COMmunication) adalah format file yang dipakai bersama oleh aplikasi silsilah. File .ged berisi orang, keluarga, dan hubungan di antara mereka, sehingga silsilah yang dibuat di satu aplikasi bisa dibuka di aplikasi lain. Panduan ini menjelaskan isinya dan cara mengekspor silsilah Anda.",
       sections: [

@@ -10,7 +10,11 @@ const PAGES: { path: string; priority: number; changeFrequency: "monthly" | "yea
   { path: "/", priority: 1, changeFrequency: "monthly" },
   { path: "/download", priority: 0.8, changeFrequency: "monthly" },
   { path: "/guides", priority: 0.6, changeFrequency: "monthly" },
-  ...guides("en").map((g) => ({ path: `/guides/${g.slug}`, priority: 0.7, changeFrequency: "monthly" as const, lastModified: g.updated })),
+  // Both languages share one entry pair: the later of their two update dates (ISO dates compare as strings).
+  ...guides("en").map((g, i) => {
+    const id = guides("id")[i].updated;
+    return { path: `/guides/${g.slug}`, priority: 0.7, changeFrequency: "monthly" as const, lastModified: id > g.updated ? id : g.updated };
+  }),
   { path: "/privacy", priority: 0.3, changeFrequency: "yearly", lastModified: LEGAL_UPDATED },
   { path: "/terms", priority: 0.3, changeFrequency: "yearly", lastModified: LEGAL_UPDATED },
 ];

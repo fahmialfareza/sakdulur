@@ -1,6 +1,12 @@
 // The guides' URLs (/en/guides/<slug>, /id/guides/<slug>). A plain module: middleware.ts imports it on the edge
 // runtime, and the content lives in guides-content.ts. The slugs are the same in both languages.
-export const GUIDE_SLUGS = ["cara-membuat-silsilah-keluarga", "trah-dan-bani", "istilah-kekerabatan", "gedcom"] as const;
+export const GUIDE_SLUGS = [
+  "cara-membuat-silsilah-keluarga",
+  "contoh-silsilah-keluarga",
+  "trah-dan-bani",
+  "istilah-kekerabatan",
+  "gedcom",
+] as const;
 
 export type GuideSlug = (typeof GUIDE_SLUGS)[number];
 

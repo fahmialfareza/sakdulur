@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExampleTree } from "@/components/marketing/example-tree";
 import { Button } from "@/components/ui/button";
 import type { Guide, GuideSection } from "@/lib/guides-content";
 
@@ -76,6 +77,7 @@ export function GuideArticle({
       {guide.sections.map((s) => (
         <section key={s.h} id={anchor(s.h)} className="scroll-mt-24 space-y-3">
           <h2 className="font-display text-2xl font-semibold">{s.h}</h2>
+          {s.figure ? <ExampleTree figure={s.figure} /> : null}
           {s.table ? <SectionTable table={s.table} /> : null}
           {s.p?.map((para) => (
             <p key={para.slice(0, 48)} className="leading-relaxed text-muted-foreground">
