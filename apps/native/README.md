@@ -12,15 +12,15 @@ device), and app changes ship with store releases, not with website deploys.
 | The website's components and messages, imported as `@/…` | `vite.config.ts` (aliases), `../frontend/src`, `../frontend/messages` |
 | `next/link`, `next/navigation`, `next-intl` stand-ins (react-router, use-intl) | `src/shims/*` |
 | API client with the session in the app (bearer tokens, refresh) instead of the website's cookies and `/api/proxy` | `src/native/api-client.ts`, `src/native/session.ts` (replaces `frontend/src/lib/api/client.ts`) |
-| Sign-in in the system browser (Google; Apple outside iPhone/Mac), returned through `com.fahmialfareza.sakdulur:/auth/<p>/complete?code=` | `src/native/native.ts`, `src/pages/auth.tsx` (`AuthComplete`), deep links in `src-tauri/src/lib.rs` |
+| Google sign-in (and Apple's web flow), returned through `com.fahmialfareza.sakdulur:/auth/<p>/complete?code=`: in an ASWebAuthenticationSession sheet on iPhone/Mac (Apple rejects sign-in in the browser), the system browser elsewhere | `src/native/native.ts` (plugin `web_auth`), `src/pages/auth.tsx` (`AuthComplete`), deep links in `src-tauri/src/lib.rs` |
 | Offline: trees seen before, kept in IndexedDB (React Query persister) | `src/query-client.ts`, `src/native/offline.ts` (replaces `frontend/src/lib/offline.ts`) |
 | Sentry: errors, traces, replays on error (masked), logs | `src/sentry.ts`, source maps in `vite.config.ts` |
 | Other sites (Google sign-in, WhatsApp, mailto) and the website's Privacy/Terms open outside the window | `src-tauri/src/lib.rs` (`on_navigation`, `on_new_window`) |
-| Downloads (exports) saved to the Downloads folder | `lib.rs` (`on_download`) |
+| Downloads (exports) saved to the Downloads folder; on the Mac where the Save panel says (the App Store sandbox only allows user-chosen files) | `lib.rs` (`on_download`), plugin `choose_save_path` |
 | Native touches (share sheet, Android back, `native-app` CSS classes, Apple sheet, saving on phones) | `frontend/src/lib/native.ts`, `components/providers/native-bridge.tsx`, `src-tauri/plugins/sakdulur` |
 
 `src-tauri/src/lib.rs` sets `window.__SAKDULUR_APP__ = { client, site }` on every page, which is how the app (and
-`nativePlatform()`) knows the platform. The app's only IPC is the local plugin's `apple_authorize` and `save_file`
+`nativePlatform()`) knows the platform. The app's only IPC is the local plugin's `apple_authorize`, `web_auth` and `save_file`
 (`capabilities/default.json`).
 
 Three `apps/frontend` modules talk to the website's server, and the app replaces them (a Vite resolve plugin in

@@ -14,18 +14,26 @@ struct OpenUrlArgs: Decodable {
   let url: String
 }
 
+struct WebAuthArgs: Decodable {
+  let url: String
+  let scheme: String
+}
+
 struct SaveFileArgs: Decodable {
   let name: String
   let mime: String
   let data: String  // base64
 }
 
-// Native pieces of the Sakdulur app (see ../src/lib.rs): Sign in with Apple (Apple's sheet over the app), saving
-// exported pictures to Photos, and an in-app browser sheet for the site's public pages (Privacy, Terms), called from
-// the app's Rust code.
-class SakdulurPlugin: Plugin, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+// Native pieces of the Sakdulur app (see ../src/lib.rs): Sign in with Apple (Apple's sheet over the app), browser
+// sign-in in an ASWebAuthenticationSession sheet, saving exported pictures to Photos, and an in-app browser sheet for
+// the site's public pages (Privacy, Terms), called from the app's Rust code.
+class SakdulurPlugin: Plugin, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding,
+  ASWebAuthenticationPresentationContextProviding
+{
   private var pending: Invoke?
   private var controller: ASAuthorizationController?
+  private var webAuthSession: ASWebAuthenticationSession?
 
   @objc public func appleAuthorize(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(AppleAuthorizeArgs.self)
@@ -40,6 +48,33 @@ class SakdulurPlugin: Plugin, ASAuthorizationControllerDelegate, ASAuthorization
       controller.presentationContextProvider = self
       self.controller = controller
       controller.performRequests()
+    }
+  }
+
+  // Google (and Apple's web flow) in a sheet over the app; it ends at the app's URL scheme, returned as `url`.
+  @objc public func webAuth(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(WebAuthArgs.self)
+    guard let url = URL(string: args.url) else {
+      invoke.reject("invalid url")
+      return
+    }
+    DispatchQueue.main.async {
+      let session = ASWebAuthenticationSession(url: url, callbackURLScheme: args.scheme) { callback, error in
+        self.webAuthSession = nil
+        if let callback {
+          invoke.resolve(["url": callback.absoluteString])
+        } else if let e = error as? ASWebAuthenticationSessionError, e.code == .canceledLogin {
+          invoke.reject("canceled")
+        } else {
+          invoke.reject(error?.localizedDescription ?? "Sign-in failed")
+        }
+      }
+      session.presentationContextProvider = self
+      self.webAuthSession = session
+      if !session.start() {
+        self.webAuthSession = nil
+        invoke.reject("Sign-in could not start")
+      }
     }
   }
 
@@ -122,6 +157,10 @@ class SakdulurPlugin: Plugin, ASAuthorizationControllerDelegate, ASAuthorization
   }
 
   public func presentationAnchor(for _: ASAuthorizationController) -> ASPresentationAnchor {
+    manager.viewController?.view.window ?? ASPresentationAnchor()
+  }
+
+  public func presentationAnchor(for _: ASWebAuthenticationSession) -> ASPresentationAnchor {
     manager.viewController?.view.window ?? ASPresentationAnchor()
   }
 }

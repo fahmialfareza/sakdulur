@@ -1,6 +1,6 @@
 ## Default Permission
 
-Nothing by default: the app grants apple_authorize to its site explicitly.
+Nothing by default: the app grants apple_authorize, save_file and web_auth to its site explicitly.
 
 ## Permission Table
 
@@ -59,6 +59,32 @@ Enables the save_file command without any pre-configured scope.
 <td>
 
 Denies the save_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sakdulur:allow-web-auth`
+
+</td>
+<td>
+
+Enables the web_auth command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sakdulur:deny-web-auth`
+
+</td>
+<td>
+
+Denies the web_auth command without any pre-configured scope.
 
 </td>
 </tr>

@@ -3,6 +3,8 @@
 import { sessionRequest } from "@/lib/api/client";
 import { API_URL } from "../env";
 
+import { nativePlatform } from "@frontend/lib/native";
+
 export * from "@frontend/lib/native";
 
 /** Where a browser sign-in's binding waits for the deep link back (routes/auth-complete.tsx). */
@@ -14,15 +16,38 @@ function randomHex(bytes = 32) {
 }
 
 /**
- * Google (and Apple outside iPhone and Mac) sign-in in the system browser: the app sends any other site there
- * (src-tauri on_navigation). The API returns a one-time code through the app's URL scheme to /auth/<p>/complete,
- * where it is exchanged together with this binding.
+ * Google (and Apple's web flow) sign-in. The API returns a one-time code through the app's URL scheme to
+ * /auth/<p>/complete, where it is exchanged together with this binding.
+ * - iPhone and Mac: in a sheet over the app (the plugin's web_auth, ASWebAuthenticationSession), which hands the
+ *   scheme URL back here; Apple doesn't allow sign-in to leave the app for the browser.
+ * - Elsewhere: in the system browser (the app sends other sites there, src-tauri on_navigation), and the scheme URL
+ *   comes back as a deep link.
  */
 export async function startBrowserSignIn(provider: "google" | "apple", next: string) {
   const binding = randomHex();
   localStorage.setItem(BINDING_KEY, binding);
   const q = new URLSearchParams({ binding, next, client: "app" });
-  window.location.assign(`${API_URL}/api/auth/${provider}/start?${q.toString()}`);
+  const start = `${API_URL}/api/auth/${provider}/start?${q.toString()}`;
+  const tauri = tauriInternals();
+  const platform = nativePlatform();
+  if (!tauri || (platform !== "ios" && platform !== "macos")) {
+    window.location.assign(start);
+    return;
+  }
+  const { url } = await tauri.invoke<{ url: string }>("plugin:sakdulur|web_auth", { url: start });
+  window.location.assign(appPath(url));
+}
+
+/** com.fahmialfareza.sakdulur://auth/google/complete?code=... (or :/auth/...) -> /auth/google/complete?code=... */
+function appPath(link: string) {
+  const u = new URL(link);
+  const path = u.host ? `/${u.host}${u.pathname}` : u.pathname;
+  if (!path.startsWith("/auth/")) throw new Error("Sign-in failed");
+  return `${path}${u.search}`;
+}
+
+function tauriInternals() {
+  return (window as unknown as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__;
 }
 
 type AppleAuthorization = { identityToken: string; authorizationCode?: string; givenName?: string; familyName?: string };
@@ -30,7 +55,7 @@ type TauriInternals = { invoke: <T>(cmd: string, args?: Record<string, unknown>)
 
 /** Native Sign in with Apple (iPhone and Mac apps, through the app's plugin). Resolves once the session is saved. */
 export async function signInWithAppleNative() {
-  const tauri = (window as unknown as { __TAURI_INTERNALS__?: TauriInternals }).__TAURI_INTERNALS__;
+  const tauri = tauriInternals();
   if (!tauri) throw new Error("Sign in with Apple is unavailable");
   const nonce = randomHex();
   // The app hashes the nonce for Apple; the API checks the token against this raw value.

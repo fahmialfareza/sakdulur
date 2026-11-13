@@ -319,10 +319,22 @@
           "markdownDescription": "Denies the save_file command without any pre-configured scope."
         },
         {
-          "description": "Nothing by default: the app grants apple_authorize to its site explicitly.",
+          "description": "Enables the web_auth command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-web-auth",
+          "markdownDescription": "Enables the web_auth command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the web_auth command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-web-auth",
+          "markdownDescription": "Denies the web_auth command without any pre-configured scope."
+        },
+        {
+          "description": "Nothing by default: the app grants apple_authorize, save_file and web_auth to its site explicitly.",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Nothing by default: the app grants apple_authorize to its site explicitly."
+          "markdownDescription": "Nothing by default: the app grants apple_authorize, save_file and web_auth to its site explicitly."
         }
       ]
     }

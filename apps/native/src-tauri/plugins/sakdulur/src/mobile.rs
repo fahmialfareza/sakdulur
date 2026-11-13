@@ -29,6 +29,12 @@ pub fn authorize<R: Runtime>(app: &AppHandle<R>, nonce: String) -> Result<crate:
     call(app, "appleAuthorize", serde_json::json!({ "nonce": nonce }))
 }
 
+#[cfg(target_os = "ios")]
+pub fn web_auth<R: Runtime>(app: &AppHandle<R>, url: &str, scheme: &str) -> Result<String, String> {
+    let res: serde_json::Value = call(app, "webAuth", serde_json::json!({ "url": url, "scheme": scheme }))?;
+    res.get("url").and_then(|u| u.as_str()).map(str::to_string).ok_or_else(|| "Sign-in returned nothing".into())
+}
+
 pub fn open_in_app_browser<R: Runtime>(app: &AppHandle<R>, url: &str) -> Result<(), String> {
     call::<R, serde_json::Value>(app, "openInAppBrowser", serde_json::json!({ "url": url })).map(|_| ())
 }

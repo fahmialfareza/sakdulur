@@ -26,6 +26,7 @@ export function useDownloadToasts() {
           : location === "photos" ? "savedPhotos"
           : location === "device" ? "savedDevice"
           : platform === "ios" ? "savedMobile"
+          : platform === "macos" ? "savedChosen"
           : "savedDesktop";
         toast.success(t(where), opts);
       } else toast.error(t(reason === "photos-denied" ? "photosDenied" : "downloadFailed"), opts);

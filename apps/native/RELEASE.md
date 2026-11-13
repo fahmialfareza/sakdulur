@@ -128,7 +128,7 @@ Linux (2026-11-01): `SNAPCRAFT_STORE_CREDENTIALS` from
 7. When a build is ready: fill in the listing, App Privacy (below), age rating and review notes (below), pick the
    build, and submit for review.
 
-The Mac App Store build is sandboxed (`src-tauri/Entitlements.appstore.plist`: network, Downloads folder, Sign in with
+The Mac App Store build is sandboxed (`src-tauri/Entitlements.appstore.plist`: network, user-selected files (exports go through the Save panel; App Review rejected 1.1.4 for the Downloads folder entitlement), Sign in with
 Apple) and built for Apple silicon and Intel. Its minimum is macOS 13, because the Sign in with Apple code is built
 for macOS 13.
 
@@ -136,8 +136,8 @@ for macOS 13.
 
 > Sakdulur is a private family tree app. Its screens are part of the app (not a website shown in a window) and work
 > offline with the trees seen before. It uses native features: Sign in with Apple through the system sheet (Face ID /
-> Touch ID), Google sign-in in the system browser with the result returned to the app through its URL scheme,
-> exports (PNG, Excel, GEDCOM, account data) saved to Files / Downloads with native progress notices, the share
+> Touch ID), Google sign-in in an ASWebAuthenticationSession sheet inside the app (the system browser on other platforms),
+> exports (PNG, Excel, GEDCOM, account data) saved to Files / Photos, or through the Save panel on the Mac, with native progress notices, the share
 > sheet for invitation links, and its own start screen.
 >
 > Demo account: `<email>` / `<password>` (has a sample tree with several generations).

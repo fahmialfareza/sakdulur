@@ -853,6 +853,7 @@
   "native": {
     "downloading": "Downloading…",
     "savedDesktop": "Saved to your Downloads folder",
+    "savedChosen": "Saved",
     "savedMobile": "Saved to Files › Sakdulur",
     "savedGallery": "Saved to Gallery › Sakdulur",
     "savedPhotos": "Saved to Photos",

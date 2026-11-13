@@ -8,7 +8,7 @@
 //! - deep links: Google sign-in returns through com.fahmialfareza.sakdulur:/auth/google/complete?..., which the
 //!   window opens as the app's own /auth/google/complete?... so the app finishes the sign-in
 //! - no page zoom (pinch, double-tap, Ctrl+scroll, Ctrl/Cmd +/-), like a native app
-//! - downloads (exports) are saved to the Downloads folder; the page is told when one starts and ends (a
+//! - downloads (exports) are saved to the Downloads folder (macOS: where the Save panel says); the page is told when one starts and ends (a
 //!   "sakdulur:download" DOM event, so it can show a toast) without the page calling into the app
 
 use std::collections::HashMap;
@@ -324,7 +324,7 @@ pub fn run() {
                         }
                     }
                 })
-                // Keep the default destination: the Downloads folder, without overwriting existing files.
+                // The default destination: the Downloads folder, without overwriting existing files (macOS asks).
                 .on_download(move |webview, event| {
                     match event {
                         DownloadEvent::Requested { url, destination } => {
@@ -333,6 +333,21 @@ pub fn run() {
                             #[cfg(target_os = "ios")]
                             if let (Ok(dir), Some(file)) = (webview.path().document_dir(), destination.file_name()) {
                                 *destination = unique_path(dir, &file.to_string_lossy());
+                            }
+                            // macOS: the Save panel, opened in Downloads. The sandboxed Mac App Store build may only
+                            // write where the user chose (files.user-selected.read-write). Cancel: no download.
+                            #[cfg(target_os = "macos")]
+                            if let (Some(dir), Some(file)) = (destination.parent(), destination.file_name()) {
+                                match tauri_plugin_sakdulur::choose_save_path(dir, &file.to_string_lossy()) {
+                                    Some(chosen) => {
+                                        // The panel asked before replacing a file; WebKit won't write over one.
+                                        if chosen.exists() {
+                                            let _ = std::fs::remove_file(&chosen);
+                                        }
+                                        *destination = chosen;
+                                    }
+                                    None => return false,
+                                }
                             }
                             let name = destination
                                 .file_name()

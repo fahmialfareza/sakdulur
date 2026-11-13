@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-web-auth"
+description = "Enables the web_auth command without any pre-configured scope."
+commands.allow = ["web_auth"]
+
+[[permission]]
+identifier = "deny-web-auth"
+description = "Denies the web_auth command without any pre-configured scope."
+commands.deny = ["web_auth"]

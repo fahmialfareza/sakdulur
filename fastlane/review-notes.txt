@@ -4,8 +4,8 @@ Sign in with the demo account below. It has a sample tree, "Keluarga Wiryo", wit
 
 Besides showing the family tree service, the app uses native features:
 - Sign in with Apple through the system sheet (Face ID / Touch ID)
-- Google sign-in in the system browser, returning to the app through its URL scheme
-- Exported tree pictures are saved to Photos (iPhone) or Downloads (Mac); Excel, GEDCOM and account data to Files › Sakdulur
+- Google sign-in in ASWebAuthenticationSession, inside the app
+- Exported tree pictures are saved to Photos (iPhone); Excel, GEDCOM and account data to Files › Sakdulur (iPhone); on the Mac every export goes through the standard Save panel
 - The share sheet for invitation links
 - An offline launch screen with Retry, and the app's own start screen instead of the website's landing page
 

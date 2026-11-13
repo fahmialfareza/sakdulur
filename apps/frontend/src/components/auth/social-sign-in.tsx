@@ -21,7 +21,7 @@ function AppleIcon() {
 /**
  * Social sign-in buttons, Apple first (Apple's guidelines; required on iOS next to any other social login).
  * - Website: plain links through the BFF (session/<provider>/start).
- * - iPhone and Mac apps: Apple's native sheet; Google in the system browser.
+ * - iPhone and Mac apps: Apple's native sheet; Google in a sign-in sheet over the app (ASWebAuthenticationSession).
  * - Windows, Linux and Android apps: both in the system browser, returning through the app's URL scheme.
  */
 export function SocialSignIn({ next, providers }: { next: string; providers: AuthProviders }) {
@@ -37,6 +37,7 @@ export function SocialSignIn({ next, providers }: { next: string; providers: Aut
     try {
       await startBrowserSignIn(provider, next);
     } catch (err) {
+      if (isUserCancel(err)) return;
       toast.error(err instanceof Error ? err.message : t("errors.generic"));
     } finally {
       setBusy(null);
