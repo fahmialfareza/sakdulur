@@ -29,6 +29,8 @@ export type Guide = {
 const PUBLISHED = "2026-11-01";
 // Titles and descriptions retuned to the searches the guides were shown for (Search Console, first two weeks).
 const RETUNED = "2026-11-09";
+// The trah/bani guide, retuned to "keluarga besar bani artinya" (week 3).
+const BANI_RETUNED = "2026-11-16";
 
 // Javanese generation names, the same word up (ancestors) and down (descendants) from you.
 const javaneseGenerations = [
@@ -229,11 +231,11 @@ function guidesEn(): Guide[] {
     },
     {
       slug: "trah-dan-bani",
-      title: "Trah and bani: organizing a large extended-family tree",
+      title: "What trah and bani mean: organizing a large extended-family tree",
       description:
-        "How Indonesian extended families (a trah or bani) can build one shared family tree with hundreds of members: dividing the work by branch, keeping it private, and using it at reunions.",
+        "Bani means all the descendants of one ancestor (Arabic for “children of”); trah is the Javanese word. How such an extended family builds one shared family tree with hundreds of members, branch by branch.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: BANI_RETUNED,
       intro:
         "In Indonesia many large families organize around a shared ancestor: a trah in Javanese families, a bani (from the Arabic for “children of”) in many Muslim families, such as “Bani Abdullah”. A shared family tree is often the first thing such a group wants, and also the hardest to keep complete. This guide shows how to organize one.",
       sections: [
@@ -286,6 +288,10 @@ function guidesEn(): Guide[] {
         },
       ],
       faq: [
+        {
+          q: "What does bani mean in a family name?",
+          a: "Bani is Arabic for “children of”. A family called “Bani Abdullah” is everyone descended from Abdullah (and his wife or wives), across all generations, together with their spouses.",
+        },
         {
           q: "What is the difference between a trah and a bani?",
           a: "Both mean everyone descended from one ancestor. Trah is the Javanese word; bani comes from Arabic (“children of”) and is common among Muslim families, usually followed by the ancestor's name, as in “Bani Abdullah”.",
@@ -664,11 +670,11 @@ function guidesId(): Guide[] {
     },
     {
       slug: "trah-dan-bani",
-      title: "Trah dan bani: cara menyusun silsilah keluarga besar",
+      title: "Arti trah dan bani: cara menyusun silsilah keluarga besar",
       description:
-        "Cara keluarga besar (trah atau bani) menyusun satu silsilah bersama dengan ratusan anggota: membagi tugas per cabang, menjaga privasi, dan memakainya saat halal bihalal atau pertemuan trah.",
+        "Bani artinya seluruh keturunan dari satu leluhur (dari bahasa Arab, “anak-anak dari”); trah adalah istilah Jawanya. Cara keluarga besar menyusun satu silsilah bersama dengan ratusan anggota, cabang demi cabang.",
       published: PUBLISHED,
-      updated: PUBLISHED,
+      updated: BANI_RETUNED,
       intro:
         "Banyak keluarga besar di Indonesia berkumpul di bawah satu leluhur: trah di keluarga Jawa, atau bani (dari bahasa Arab, “anak-anak dari”) di banyak keluarga Muslim, seperti “Bani Abdullah”. Silsilah bersama sering menjadi hal pertama yang diinginkan, sekaligus yang paling sulit dilengkapi. Panduan ini menunjukkan cara menyusunnya.",
       sections: [
@@ -721,6 +727,10 @@ function guidesId(): Guide[] {
         },
       ],
       faq: [
+        {
+          q: "Keluarga besar bani artinya apa?",
+          a: "Bani berasal dari bahasa Arab yang artinya “anak-anak dari”. Keluarga besar “Bani Abdullah” berarti seluruh keturunan Abdullah (dan istri atau istri-istrinya) dari semua generasi, beserta pasangan mereka.",
+        },
         {
           q: "Apa bedanya trah dan bani?",
           a: "Keduanya berarti seluruh keturunan dari satu leluhur. Trah adalah istilah Jawa; bani berasal dari bahasa Arab (“anak-anak dari”) dan lazim di keluarga Muslim, biasanya diikuti nama leluhurnya, seperti “Bani Abdullah”.",
