@@ -13,7 +13,7 @@ export const ANDROID_PACKAGE = "com.fahmialfareza.sakdulur";
 export const APP_VERSION = "1.0.0";
 
 export const STORES: Store[] = [
-  { id: "appStore", url: `https://apps.apple.com/app/id${APP_STORE_ID}`, os: "iOS, iPadOS", live: false },
+  { id: "appStore", url: `https://apps.apple.com/app/id${APP_STORE_ID}`, os: "iOS, iPadOS", live: true },
   { id: "macAppStore", url: `https://apps.apple.com/app/id${APP_STORE_ID}?platform=mac`, os: "macOS", live: false },
   { id: "googlePlay", url: `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`, os: "Android", live: true },
   { id: "microsoftStore", url: "https://apps.microsoft.com/detail/9N7B6TSCXZ00", os: "Windows", live: true },
