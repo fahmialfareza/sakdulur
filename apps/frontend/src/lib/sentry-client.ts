@@ -4,11 +4,15 @@ import { SENTRY_DATA_COLLECTION, SENTRY_DSN, SENTRY_INITIAL_SCOPE, SENTRY_ENVIRO
 type SentryModule = typeof import("@sentry/nextjs");
 
 let loading: Promise<SentryModule | null> | undefined;
+let started = false;
+
+/** Whether the SDK is running (it then catches uncaught errors itself). */
+export const sentryStarted = () => started;
 
 /**
  * Loads and starts the browser SDK once. It is about half of the marketing pages' JavaScript, so it is not in the
- * first download: instrumentation-client.ts calls this once the page is idle, and the error pages call it right away
- * (an error before then is still reported).
+ * first download: instrumentation-client.ts calls this on the first interaction or error, and the error pages call it
+ * right away (an error before then is still reported).
  */
 export function loadSentry(): Promise<SentryModule | null> {
   if (!SENTRY_DSN) return Promise.resolve(null);
@@ -28,6 +32,7 @@ export function loadSentry(): Promise<SentryModule | null> {
     // Versions of the desktop and mobile apps that show this site mark themselves with the client cookie.
     const client = document.cookie.match(new RegExp(`(?:^|;\\s*)${CLIENT_COOKIE}=([^;]+)`))?.[1];
     Sentry.setTag("platform", isAppClient(client) ? client : "web");
+    started = true;
     return Sentry;
   });
   return loading;
