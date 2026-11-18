@@ -7,14 +7,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError, isOfflineError } from "@/lib/api/client";
 import { registerServiceWorker } from "@/lib/offline";
-import { SENTRY_DSN } from "@/lib/sentry";
+import { loadSentry } from "@/lib/sentry-client";
 
 // Session Replay (sent only when an error happens, see instrumentation-client.ts) is loaded here rather than on every
 // page. Names, dates and photos of relatives are private, so every text, input and image is masked.
 function addSessionReplay() {
-  if (!SENTRY_DSN) return;
-  void import("@sentry/nextjs").then((Sentry) =>
-    Sentry.addIntegration(Sentry.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: true })),
+  void loadSentry().then((Sentry) =>
+    Sentry?.addIntegration(Sentry.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: true })),
   );
 }
 

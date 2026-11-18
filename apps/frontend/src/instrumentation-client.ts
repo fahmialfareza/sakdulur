@@ -1,24 +1,11 @@
-import * as Sentry from "@sentry/nextjs";
-import { CLIENT_COOKIE, isAppClient } from "@/lib/app-client";
-import { SENTRY_DATA_COLLECTION, SENTRY_DSN, SENTRY_INITIAL_SCOPE, SENTRY_ENVIRONMENT, SENTRY_TRACES_SAMPLE_RATE, SENTRY_TUNNEL } from "@/lib/sentry";
+import { loadSentry } from "@/lib/sentry-client";
 
-// Runs on every page, so it stays small: Session Replay is added only in the app section (app-providers.tsx).
-if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: SENTRY_ENVIRONMENT,
-    tunnel: SENTRY_TUNNEL,
-    dataCollection: SENTRY_DATA_COLLECTION,
-    initialScope: SENTRY_INITIAL_SCOPE,
-    tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE,
-    replaysSessionSampleRate: 0,
-    // The plan has 50 replays a month, shared with the apps (src/sentry.ts in apps/native): 1 in 4 error sessions.
-    replaysOnErrorSampleRate: 0.25,
-    integrations: [Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] })],
-  });
-  // Versions of the desktop and mobile apps that show this site mark themselves with the client cookie.
-  const client = document.cookie.match(new RegExp(`(?:^|;\\s*)${CLIENT_COOKIE}=([^;]+)`))?.[1];
-  Sentry.setTag("platform", isAppClient(client) ? client : "web");
+// Runs on every page, so it stays small: the Sentry SDK is loaded once the page is idle (sentry-client.ts), off the
+// critical path of the first paint, and Session Replay is added only in the app section (app-providers.tsx).
+if (typeof requestIdleCallback === "function") requestIdleCallback(() => void loadSentry(), { timeout: 4000 });
+else setTimeout(() => void loadSentry(), 2000);
+
+// Router transitions before the SDK has loaded are not traced (only 1 in 10 is sampled anyway).
+export function onRouterTransitionStart(...args: Parameters<typeof import("@sentry/nextjs").captureRouterTransitionStart>) {
+  void loadSentry().then((Sentry) => Sentry?.captureRouterTransitionStart(...args));
 }
-
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
