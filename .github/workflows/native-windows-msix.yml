@@ -104,7 +104,7 @@ jobs:
             -SignPfxPassword "$env:WINDOWS_PFX_PASSWORD"
           "MSIX_PATH=$msix" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sakdulur-windows-msix-${{ matrix.arch }}-${{ inputs.build_number }}
           path: ${{ env.MSIX_PATH }}

@@ -126,7 +126,7 @@ jobs:
           jarsigner -verify "$aab"
           echo "AAB_PATH=$aab" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sakdulur-android-aab-${{ inputs.build_number }}
           path: ${{ env.AAB_PATH }}
