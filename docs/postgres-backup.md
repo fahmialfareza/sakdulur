@@ -25,7 +25,7 @@ During each run the workflow:
 2. Installs AWS CLI for the R2 upload.
 3. Creates a compressed custom-format dump such as `family-tree-postgres-2026-10-25-170000.dump` and checks it with `pg_restore --list`.
 4. Uploads the dump to `s3://<R2_BUCKET>/postgres/weekly/` using the Cloudflare R2 S3-compatible endpoint.
-5. Deletes weekly dumps older than 8 weeks. Until 2026-11-14 it also drains the old `postgres/daily/` prefix (dumps older than 14 days) left over from when backups ran daily.
+5. Deletes weekly dumps older than 8 weeks.
 
 ## Trigger A Backup Manually
 

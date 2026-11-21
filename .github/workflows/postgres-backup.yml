@@ -106,5 +106,3 @@ jobs:
           }
 
           prune weekly 56
-          # Drains the old daily/ prefix from before backups went weekly; remove after 2026-11-14.
-          prune daily 14
