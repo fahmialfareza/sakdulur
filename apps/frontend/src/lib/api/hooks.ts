@@ -220,6 +220,22 @@ export async function addRelationships(treeId: string, id: string, add: Relation
   return api.post(`${t(treeId)}/people/${encodeURIComponent(id)}/relationships`, list);
 }
 
+/**
+ * Sets the order ("anak ke-") of a parent's children: `orders` maps child id to position (1, 2, ...; 0 clears
+ * it, so birth dates decide). Every other link, and the details of these ones, stay as they are.
+ */
+export async function saveChildOrder(treeId: string, parentId: string, orders: Map<string, number>) {
+  const path = `${t(treeId)}/people/${encodeURIComponent(parentId)}/relationships`;
+  const existing = await api.get<Relationship[]>(path);
+  const list = existing
+    .filter((r) => r.from === parentId)
+    .map((r) => {
+      const input = relationshipInput(r);
+      return r.type === "parent" && orders.has(r.to) ? { ...input, order: orders.get(r.to) } : input;
+    });
+  return api.post(path, list);
+}
+
 export function useSetOwners(treeId: string) {
   const invalidate = useInvalidateTree(treeId);
   return useMutation({

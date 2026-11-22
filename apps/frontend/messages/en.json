@@ -280,7 +280,15 @@
     "isParent": "…is a parent",
     "isPartner": "…is a partner",
     "isChild": "…is a child",
-    "link": "Link"
+    "link": "Link",
+    "moveUp": "Move {name} up",
+    "moveDown": "Move {name} down",
+    "orderSaved": "Order of children saved.",
+    "orderReset": "Children are sorted by birth date again.",
+    "sortByBirth": "Sort by birth",
+    "sortByBirthHint": "Clear the order set by hand and sort the children by birth date",
+    "childNumberTitle": "Child no. {n}",
+    "birthPosition": "Child {index} of {total}"
   },
   "sharing": {
     "intro": "In this tree, editors and viewers only see and edit the branches shared with them. Sharing a person also shares their partner and parents.",

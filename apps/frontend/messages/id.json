@@ -280,7 +280,15 @@
     "isParent": "…adalah orang tua",
     "isPartner": "…adalah pasangan",
     "isChild": "…adalah anak",
-    "link": "Hubungkan"
+    "link": "Hubungkan",
+    "moveUp": "Naikkan urutan {name}",
+    "moveDown": "Turunkan urutan {name}",
+    "orderSaved": "Urutan anak disimpan.",
+    "orderReset": "Anak kembali diurutkan menurut tanggal lahir.",
+    "sortByBirth": "Urutkan menurut lahir",
+    "sortByBirthHint": "Hapus urutan yang diatur manual dan urutkan anak menurut tanggal lahir",
+    "childNumberTitle": "Anak ke-{n}",
+    "birthPosition": "Anak ke-{index} dari {total}"
   },
   "sharing": {
     "intro": "Di pohon ini, editor dan pembaca hanya melihat dan mengubah cabang yang dibagikan kepada mereka. Membagikan seseorang juga membagikan pasangan dan orang tuanya.",
