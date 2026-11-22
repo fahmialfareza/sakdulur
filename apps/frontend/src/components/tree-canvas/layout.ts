@@ -1,6 +1,7 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
 import type { Edge, Node } from "@xyflow/react";
 import type { Graph, GraphPerson, ParentKind, PartnerStatus } from "@/lib/api/types";
+import { compareChildren } from "@/lib/relatives";
 
 // Genealogy layout on top of ELK's layered (Sugiyama) algorithm.
 //
@@ -14,6 +15,10 @@ import type { Graph, GraphPerson, ParentKind, PartnerStatus } from "@/lib/api/ty
 // is laid out: birth parents when recorded, else adoptive, else whatever exists. The other links are dashed
 // edges (step ones hidden until someone involved is in focus: the marriage already says it) and a mark on the
 // child's card.
+//
+// Siblings stand left to right in birth order: an order set by hand ("anak ke-") first, else birth date. ELK
+// may swap siblings to save a crossing (an in-law family pulling one of them aside); when it does, the siblings
+// are put back in order within the places they took and ELK runs again with that order kept.
 
 export const PERSON_WIDTH = 208;
 export const PERSON_HEIGHT = 72;
@@ -110,14 +115,15 @@ export async function layoutGraph(
 
   // Each child's visible parents by kind; the primary set is laid out, the rest drawn on demand.
   const linksOf = new Map<string, Map<ParentKind, string[]>>();
-  const orderOf = new Map<string, number>();
-  for (const pc of [...graph.parentChild].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
+  const personOf = new Map(graph.people.map((p) => [p._id, p]));
+  const linkOrder = new Map<string, number>(); // "parent>child" -> order set by hand
+  for (const pc of graph.parentChild) {
     if (!visible.has(pc.parent) || !visible.has(pc.child)) continue;
     const byKind = linksOf.get(pc.child) ?? new Map<ParentKind, string[]>();
     const kind = pc.kind ?? "birth";
     byKind.set(kind, [...new Set([...(byKind.get(kind) ?? []), pc.parent])]);
     linksOf.set(pc.child, byKind);
-    if (!orderOf.has(pc.child)) orderOf.set(pc.child, pc.order ?? 0);
+    if (pc.order && pc.order > 0) linkOrder.set(`${pc.parent}>${pc.child}`, pc.order);
   }
   const primaryParents = new Map<string, string[]>();
   const otherParents = new Map<string, Exclude<ParentKind, "birth">[]>();
@@ -131,6 +137,14 @@ export async function layoutGraph(
       extra.push({ parents: [...parents].sort(), child, kind });
     }
   }
+  // A child's order among their primary parents' children: the father's (or first parent's) hand-set order.
+  const orderOf = new Map<string, number>();
+  for (const [child, parents] of primaryParents) {
+    const byFather = [...parents].sort((a, b) => Number(personOf.get(b)?.gender === "male") - Number(personOf.get(a)?.gender === "male"));
+    const order = byFather.map((p) => linkOrder.get(`${p}>${child}`)).find((o) => o !== undefined);
+    if (order !== undefined) orderOf.set(child, order);
+  }
+  const childKey = (id: string) => ({ order: orderOf.get(id), person: personOf.get(id)! });
 
   // Partner groups: unions, plus co-parents who aren't partners (they still share a dot over their children).
   const couples = new Set<string>();
@@ -187,7 +201,12 @@ export async function layoutGraph(
       dotOf.set(uid, { dx: slot(gap) + PERSON_WIDTH + PARTNER_GAP / 2, drop: UNION_DROP + 18 });
     }
   }
-  const elkNodes: ElkNode[] = [...blocks].map(([id, members]) => {
+  const children = [...primaryParents.keys()].sort((a, b) => compareChildren(childKey(a), childKey(b)));
+  // Blocks in the children's order first, so ELK's model-order tie-breaks already follow birth order.
+  const blockRank = new Map<string, number>();
+  for (const child of children) if (!blockRank.has(blockOf.get(child)!)) blockRank.set(blockOf.get(child)!, blockRank.size);
+  const blockList = [...blocks].sort(([a], [b]) => (blockRank.get(a) ?? Infinity) - (blockRank.get(b) ?? Infinity));
+  const elkNodes: ElkNode[] = blockList.map(([id, members]) => {
     const bottom = members.map((m, i) => ({ id: `pb:${m}`, x: slot(i) + PERSON_WIDTH / 2 }));
     for (const [uid, dot] of dotOf) if (blockOf.get(uid.split(":")[1]) === id) bottom.push({ id: `pb:${uid}`, x: dot.dx });
     return {
@@ -203,7 +222,6 @@ export async function layoutGraph(
   });
   const elkEdges: ElkExtendedEdge[] = [];
   const tied: [string, string][] = []; // parent block, child block
-  const children = [...primaryParents.keys()].sort((a, b) => (orderOf.get(a) ?? 0) - (orderOf.get(b) ?? 0));
   for (const child of children) {
     const parents = primaryParents.get(child)!;
     if (blockOf.get(parents[0]) === blockOf.get(child)) continue;
@@ -229,22 +247,62 @@ export async function layoutGraph(
     elkEdges.push({ id: `bx:${x.kind}:${x.child}`, sources: [from], targets: [`pt:${x.child}`] });
   }
 
-  const result = await elk.layout({
-    id: "root",
-    layoutOptions: {
-      "elk.algorithm": "layered",
-      "elk.direction": "DOWN",
-      "elk.layered.spacing.nodeNodeBetweenLayers": "84",
-      "elk.spacing.nodeNode": "36",
-      "elk.spacing.componentComponent": "84",
-      "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
-      "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
-      "elk.layered.crossingMinimization.forceNodeModelOrder": "false",
-      "elk.edgeRouting": "ORTHOGONAL",
-    },
-    children: elkNodes,
-    edges: elkEdges,
-  });
+  const layoutOptions = {
+    "elk.algorithm": "layered",
+    "elk.direction": "DOWN",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "84",
+    "elk.spacing.nodeNode": "36",
+    "elk.spacing.componentComponent": "84",
+    "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+    "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES",
+    "elk.layered.crossingMinimization.forceNodeModelOrder": "false",
+    "elk.edgeRouting": "ORTHOGONAL",
+  };
+  // ELK fills in the graph it is given, so each run gets its own copy.
+  const run = (nodes: ElkNode[], options: Record<string, string>) =>
+    elk.layout({ id: "root", layoutOptions: options, children: structuredClone(nodes), edges: structuredClone(elkEdges) });
+  let result = await run(elkNodes, layoutOptions);
+
+  // Siblings out of birth order: put them back in order in the places they took, keep every other block where
+  // ELK put it, and lay out again with that order forced.
+  const siblingBlocks = new Map<string, string[]>(); // parents -> their children's blocks, in birth order
+  for (const child of children) {
+    const parents = primaryParents.get(child)!;
+    const block = blockOf.get(child)!;
+    if (block === blockOf.get(parents[0])) continue;
+    const key = parents.join("+");
+    const list = siblingBlocks.get(key) ?? [];
+    if (!list.includes(block)) list.push(block);
+    siblingBlocks.set(key, list);
+  }
+  const rows = new Map<number, ElkNode[]>();
+  for (const b of result.children ?? []) {
+    const y = Math.round(b.y ?? 0);
+    rows.set(y, [...(rows.get(y) ?? []), b]);
+  }
+  const rowOrder = [...rows].sort(([a], [b]) => a - b).map(([, r]) => r.sort((a, b) => (a.x ?? 0) - (b.x ?? 0)).map((b) => b.id));
+  let moved = false;
+  for (const wanted of siblingBlocks.values()) {
+    if (wanted.length < 2) continue;
+    for (const row of rowOrder) {
+      const slots = row.flatMap((id, i) => (wanted.includes(id) ? [i] : []));
+      if (slots.length < 2) continue;
+      const inOrder = wanted.filter((id) => row.includes(id));
+      if (slots.every((slot, i) => row[slot] === inOrder[i])) continue;
+      slots.forEach((slot, i) => (row[slot] = inOrder[i]));
+      moved = true;
+    }
+  }
+  if (moved) {
+    const rank = new Map(rowOrder.flat().map((id, i) => [id, i]));
+    const ordered = [...elkNodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+    result = await run(ordered, {
+      ...layoutOptions,
+      "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
+      // The greedy switch pass swaps neighbours to save crossings even with a forced order; off here.
+      "elk.layered.crossingMinimization.greedySwitch.type": "OFF",
+    });
+  }
 
   // People inside their block, in chain order.
   const pos = new Map<string, { x: number; y: number }>();

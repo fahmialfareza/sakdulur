@@ -15,6 +15,7 @@ import { useDeletePerson, usePerson, useSyncFromOriginal } from "@/lib/api/hooks
 import type { Graph, Person, TreeRole } from "@/lib/api/types";
 import { formatPartialDate, whatsappLink } from "@/lib/format";
 import { useOffline } from "@/lib/offline";
+import { relativesOf } from "@/lib/relatives";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { PersonForm } from "./person-form";
 import { RelativesPanel } from "./relatives-panel";
@@ -59,6 +60,8 @@ export function PersonDrawer({
   const person: Person | undefined = fetched ?? (offline && summary ? { ...summary, ownedBy: null } : undefined);
   const canEdit = role !== "viewer" && !!summary?.canEdit;
   const showSharing = role === "owner" && !!graph?.tree.branchScoped;
+  const birthPosition = personId ? relativesOf(graph, personId).birthPosition : undefined;
+  const tr = useTranslations("relatives");
   const q = (x: "exact" | "about" | "before" | "after") => tp(`qualifier.${x}`);
 
   return (
@@ -76,6 +79,7 @@ export function PersonDrawer({
                 <SheetDescription className="flex flex-wrap items-center gap-2">
                   {person.nickname ? <span>“{person.nickname}”</span> : null}
                   <Badge variant="secondary">{tp(`statuses.${person.status}`)}</Badge>
+                  {birthPosition && birthPosition.total > 1 ? <Badge variant="outline">{tr("birthPosition", birthPosition)}</Badge> : null}
                 </SheetDescription>
               </div>
             </div>

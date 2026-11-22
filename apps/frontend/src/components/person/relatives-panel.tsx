@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Link2, Pencil, Plus, UserRoundPlus, Users, X } from "lucide-react";
+import { ArrowDownUp, ChevronDown, ChevronUp, Heart, Link2, Pencil, Plus, UserRoundPlus, Users, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api, errorMessage } from "@/lib/api/client";
-import { addRelationships, relationshipInput, useInvalidateTree } from "@/lib/api/hooks";
+import { addRelationships, relationshipInput, saveChildOrder, useInvalidateTree } from "@/lib/api/hooks";
 import type { Graph, GraphPerson, ParentKind, PartnerStatus, Relationship, RelationshipDetails } from "@/lib/api/types";
 import { formatPartialDate, lifeSpan } from "@/lib/format";
 import { type PartnerLink, relativesOf, type SiblingKind } from "@/lib/relatives";
@@ -26,6 +26,9 @@ type Row = {
   details?: RelationshipDetails;
   badge?: string;
   note?: string;
+  /** Children: their place ("anak ke-"), and moving them up or down when the order can be edited. */
+  position?: number;
+  move?: { up?: () => void; down?: () => void };
 };
 
 /** Parents, partners, children and siblings with links to re-center the tree; editors can link, edit and unlink. */
@@ -57,6 +60,40 @@ export function RelativesPanel({
   const [linkTo, setLinkTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<LinkEdit | null>(null);
+  const [ordering, setOrdering] = useState(false);
+
+  // Children's order is stored on both sides of each link, so every child must be editable too.
+  const canOrder = canEdit && rel.childLinks.length > 1 && rel.childLinks.every((l) => l.person.canEdit);
+  const orderSetByHand = rel.childLinks.some((l) => (l.order ?? 0) > 0);
+
+  /** Saves the children's order ("anak ke-"); null clears it, so birth dates decide again. */
+  async function saveOrder(ids: string[] | null) {
+    if (!graph) return;
+    setOrdering(true);
+    try {
+      const orders = new Map(rel.childLinks.map((l) => [l.person._id, ids ? ids.indexOf(l.person._id) + 1 : 0]));
+      await saveChildOrder(treeId, personId, orders);
+      // The other parent of these children gets the same order, so both sides of the family agree. Best effort:
+      // the canvas follows either parent's order, and a branch-scoped editor may not reach the other parent.
+      const editable = new Set(graph.people.filter((p) => p.canEdit).map((p) => p._id));
+      const coParents = new Set(graph.parentChild.filter((pc) => pc.parent !== personId && orders.has(pc.child) && editable.has(pc.parent)).map((pc) => pc.parent));
+      for (const other of coParents) {
+        const theirs = new Set(graph.parentChild.filter((pc) => pc.parent === other).map((pc) => pc.child));
+        await saveChildOrder(treeId, other, new Map([...orders].filter(([child]) => theirs.has(child)))).catch(() => undefined);
+      }
+      await invalidate();
+      toast.success(t(ids ? "orderSaved" : "orderReset"));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setOrdering(false);
+    }
+  }
+  const move = (from: number, to: number) => {
+    const ids = rel.childLinks.map((l) => l.person._id);
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    void saveOrder(ids);
+  };
 
   // "X is <kind> of this person" maps to the API's direction: stored on X as {to: person, type}.
   async function link() {
@@ -114,7 +151,19 @@ export function RelativesPanel({
   const groups: { label: string; rows: Row[]; add: Kind | null; Icon: typeof Users }[] = [
     { label: t("parents"), rows: rel.parentLinks.map((l) => ({ person: l.person, role: "parent", details: { kind: l.kind }, badge: kindBadge(l.kind) })), add: "parent", Icon: Users },
     { label: t("partners"), rows: rel.partnerLinks.map(partnerRow), add: "spouse", Icon: Heart },
-    { label: t("children"), rows: rel.childLinks.map((l) => ({ person: l.person, role: "child", details: { kind: l.kind }, badge: kindBadge(l.kind) })), add: "child", Icon: UserRoundPlus },
+    {
+      label: t("children"),
+      rows: rel.childLinks.map((l, i, all) => ({
+        person: l.person,
+        role: "child",
+        details: { kind: l.kind },
+        badge: kindBadge(l.kind),
+        position: all.length > 1 ? i + 1 : undefined,
+        move: canOrder ? { up: i > 0 ? () => move(i, i - 1) : undefined, down: i < all.length - 1 ? () => move(i, i + 1) : undefined } : undefined,
+      })),
+      add: "child",
+      Icon: UserRoundPlus,
+    },
   ];
   const siblingKinds = [...new Set(rel.siblingLinks.map((s) => s.kind))] as SiblingKind[];
   const siblingGroups = siblingKinds.map((k) => ({ label: tl(`siblingKinds.${k}`), rows: rel.siblingLinks.filter((s) => s.kind === k).map((s) => ({ person: s.person })) }));
@@ -129,6 +178,11 @@ export function RelativesPanel({
       <ul className="space-y-1.5">
         {rows.map((r) => (
           <li key={r.person._id} className="flex items-center gap-1 rounded-lg border bg-card p-1.5 pr-2">
+            {r.position ? (
+              <span className="w-6 shrink-0 text-center text-xs font-medium tabular-nums text-muted-foreground" title={t("childNumberTitle", { n: r.position })}>
+                {r.position}
+              </span>
+            ) : null}
             <button type="button" onClick={() => onFocus(r.person._id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 text-left hover:bg-accent">
               <PersonAvatar
                 name={r.person.name}
@@ -151,6 +205,16 @@ export function RelativesPanel({
                 </span>
               </span>
             </button>
+            {r.move ? (
+              <span className="flex shrink-0 flex-col">
+                <Button variant="ghost" size="icon" className="h-4 w-8" disabled={!r.move.up || ordering} onClick={r.move.up} aria-label={t("moveUp", { name: r.person.name })}>
+                  <ChevronUp className="size-4" aria-hidden />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-4 w-8" disabled={!r.move.down || ordering} onClick={r.move.down} aria-label={t("moveDown", { name: r.person.name })}>
+                  <ChevronDown className="size-4" aria-hidden />
+                </Button>
+              </span>
+            ) : null}
             {canEdit && r.role && r.person.canEdit ? (
               <>
                 <Button
@@ -180,11 +244,18 @@ export function RelativesPanel({
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <Icon className="size-4 text-muted-foreground" aria-hidden /> {label}
             </h3>
-            {canEdit && add ? (
-              <Button variant="ghost" size="sm" onClick={() => onAddRelative(personId, add)}>
-                <Plus className="size-4" aria-hidden /> {t("add")}
-              </Button>
-            ) : null}
+            <div className="flex items-center">
+              {add === "child" && canOrder && orderSetByHand ? (
+                <Button variant="ghost" size="sm" disabled={ordering} onClick={() => saveOrder(null)} title={t("sortByBirthHint")}>
+                  <ArrowDownUp className="size-4" aria-hidden /> {t("sortByBirth")}
+                </Button>
+              ) : null}
+              {canEdit && add ? (
+                <Button variant="ghost" size="sm" onClick={() => onAddRelative(personId, add)}>
+                  <Plus className="size-4" aria-hidden /> {t("add")}
+                </Button>
+              ) : null}
+            </div>
           </div>
           {list(rows)}
         </section>
