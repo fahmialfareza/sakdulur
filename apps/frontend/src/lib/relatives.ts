@@ -4,9 +4,10 @@ import type { Graph, GraphPerson, GraphUnion, ParentKind } from "@/lib/api/types
 export type SiblingKind = "full" | "half" | "step" | "adopted" | "foster" | "milk";
 
 /** `order` (children only): the position set by hand on the link ("anak ke-"), when there is one. */
-export type ParentLink = { person: GraphPerson; kind: ParentKind; order?: number };
+export type ParentLink = { person: GraphPerson; kind: ParentKind; order?: number; twin?: boolean };
 export type PartnerLink = { person: GraphPerson; union: GraphUnion; widowed: boolean };
-export type SiblingLink = { person: GraphPerson; kind: SiblingKind };
+/** `twin`: kembar, a full sibling born the same day (of this person or of another sibling). */
+export type SiblingLink = { person: GraphPerson; kind: SiblingKind; twin?: boolean };
 
 export type Relatives = {
   parents: GraphPerson[];
@@ -20,22 +21,82 @@ export type Relatives = {
   siblingLinks: SiblingLink[];
   /** "Anak ke-{index} dari {total}": place among the birth children of the person's first birth parent. */
   birthPosition?: { index: number; total: number };
+  /** Some children's order is a guess: they have no position set by hand and tie on (or lack) a birth date. */
+  childrenUncertain: boolean;
 };
 
 const SIBLING_ORDER: SiblingKind[] = ["full", "half", "step", "adopted", "foster", "milk"];
 
+/** A child with the position set by hand on their link ("anak ke-"), when there is one. */
+export type OrderedChild = { order?: number; person: GraphPerson };
+
 /**
- * Order of a parent's children, left to right: an order set by hand ("anak ke-") first, then birth date (unknown
- * last), then name. Without a hand-set order children simply follow their birth dates.
+ * Compares two birth dates only as precisely as both are known: "1990" and "1990-05-03" tie, since either could
+ * be first. Undefined when either date is unknown.
  */
-export function compareChildren(a: { order?: number; person: GraphPerson }, b: { order?: number; person: GraphPerson }): number {
-  const oa = a.order && a.order > 0 ? a.order : Number.POSITIVE_INFINITY;
-  const ob = b.order && b.order > 0 ? b.order : Number.POSITIVE_INFINITY;
-  if (oa !== ob) return oa < ob ? -1 : 1;
-  const da = a.person.birthDate ?? "";
-  const db = b.person.birthDate ?? "";
-  if (da !== db) return !da ? 1 : !db ? -1 : da < db ? -1 : 1;
-  return a.person.name.localeCompare(b.person.name) || (a.person._id < b.person._id ? -1 : a.person._id > b.person._id ? 1 : 0);
+export function compareBirthDates(a: GraphPerson, b: GraphPerson): number | undefined {
+  if (!a.birthDate || !b.birthDate) return undefined;
+  const parts = (p: GraphPerson) => {
+    const [y, m, d] = p.birthDate!.slice(0, 10).split("-");
+    const precision = p.birthDatePrecision ?? "day";
+    return [y, precision === "year" ? undefined : m, precision === "day" ? d : undefined];
+  };
+  const pa = parts(a);
+  const pb = parts(b);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] === undefined || pb[i] === undefined) return 0;
+    if (pa[i] !== pb[i]) return pa[i]! < pb[i]! ? -1 : 1;
+  }
+  return 0;
+}
+
+/** Twins (kembar): the same birth day, known to the day. */
+export const sameBirthDay = (a: GraphPerson, b: GraphPerson) =>
+  !!a.birthDate &&
+  (a.birthDatePrecision ?? "day") === "day" &&
+  (b.birthDatePrecision ?? "day") === "day" &&
+  a.birthDate.slice(0, 10) === b.birthDate?.slice(0, 10);
+
+const byName = (a: OrderedChild, b: OrderedChild) =>
+  a.person.name.localeCompare(b.person.name) || (a.person._id < b.person._id ? -1 : a.person._id > b.person._id ? 1 : 0);
+const hasOrder = (c: OrderedChild) => !!c.order && c.order > 0;
+
+/**
+ * A parent's children, left to right ("anak ke-" order):
+ * 1. Children with a position set by hand keep it.
+ * 2. The others go in by birth date, just before the first numbered sibling born later, so a child added after
+ *    the order was set still lands in their place; without a known birth date they go last.
+ * 3. Birth dates are compared as precisely as both are known (see compareBirthDates); a tie (twins, or a year
+ *    against a full date) falls back to the name.
+ * `uncertain` is set when two siblings without a set position tie or have no birth date: their order is a guess.
+ */
+export function sortChildren<T extends OrderedChild>(children: T[]): { sorted: T[]; uncertain: boolean } {
+  // By date, then name. Insertion sort so a precision tie keeps the name order (the comparison isn't transitive
+  // across precisions: "1990" ties both "1990-01" and "1990-12").
+  const byDate = (list: T[]) => {
+    const out: T[] = [];
+    for (const c of [...list].sort(byName)) {
+      let at = out.length;
+      while (at > 0 && (compareBirthDates(out[at - 1].person, c.person) ?? 0) > 0) at--;
+      out.splice(at, 0, c);
+    }
+    return out;
+  };
+  const numbered = [...children.filter(hasOrder)].sort((a, b) => a.order! - b.order! || byName(a, b));
+  const free = children.filter((c) => !hasOrder(c));
+  const dated = byDate(free.filter((c) => c.person.birthDate));
+  const undated = free.filter((c) => !c.person.birthDate).sort(byName);
+
+  const sorted: T[] = [...numbered];
+  for (const c of dated) {
+    const later = sorted.findIndex((n) => hasOrder(n) && (compareBirthDates(n.person, c.person) ?? 0) > 0);
+    sorted.splice(later < 0 ? sorted.length : later, 0, c);
+  }
+  sorted.push(...undated);
+
+  const tie = (a: T, b: T) => !hasOrder(a) && !hasOrder(b) && (compareBirthDates(a.person, b.person) ?? 0) === 0;
+  const uncertain = sorted.some((c, i) => i > 0 && tie(sorted[i - 1], c));
+  return { sorted, uncertain };
 }
 
 const empty = (): Relatives => ({
@@ -47,6 +108,7 @@ const empty = (): Relatives => ({
   partnerLinks: [],
   childLinks: [],
   siblingLinks: [],
+  childrenUncertain: false,
 });
 
 /** Immediate family of a person, derived from the tree graph, with birth and other parents told apart. */
@@ -68,17 +130,31 @@ export function relativesOf(graph: Graph | undefined, id: string): Relatives {
 
   const parentLinks: ParentLink[] = [];
   for (const pc of parentsOf(id)) link(parentLinks, pc.parent, (person) => ({ person, kind: kindOf(pc.kind) }));
-  // A parent's children with the order on each link, sorted (see compareChildren).
+  // A parent's children with the order on each link, sorted (see sortChildren).
   const orderedChildren = (x: string, onlyBirth = false) =>
-    childrenOf(x)
-      .filter((pc) => !onlyBirth || kindOf(pc.kind) === "birth")
-      .flatMap((pc) => {
-        const person = byId.get(pc.child);
-        return person ? [{ pc, person, order: pc.order }] : [];
-      })
-      .sort(compareChildren);
+    sortChildren(
+      childrenOf(x)
+        .filter((pc) => !onlyBirth || kindOf(pc.kind) === "birth")
+        .flatMap((pc) => {
+          const person = byId.get(pc.child);
+          return person ? [{ pc, person, order: pc.order }] : [];
+        }),
+    );
+  const sameBirthParents = (a: string, b: string) => {
+    const pa = birthParents(a);
+    const pb = birthParents(b);
+    return pa.size > 0 && pa.size === pb.size && [...pa].every((p) => pb.has(p));
+  };
+  const mine = orderedChildren(id);
   const childLinks: ParentLink[] = [];
-  for (const { pc } of orderedChildren(id)) link(childLinks, pc.child, (person) => ({ person, kind: kindOf(pc.kind), order: pc.order }));
+  for (const { pc } of mine.sorted) {
+    link(childLinks, pc.child, (person) => ({
+      person,
+      kind: kindOf(pc.kind),
+      order: pc.order,
+      twin: mine.sorted.some((o) => o.person._id !== person._id && sameBirthDay(o.person, person) && sameBirthParents(o.person._id, person._id)),
+    }));
+  }
   const partnerLinks: PartnerLink[] = [];
   for (const u of partnersOf(id)) {
     const other = u.partners[0] === id ? u.partners[1] : u.partners[0];
@@ -118,15 +194,19 @@ export function relativesOf(graph: Graph | undefined, id: string): Relatives {
   // The first birth parent (father first, as on the canvas) decides birth order among siblings.
   const firstParent = [...myBirth].sort((a, b) => Number(byId.get(b)?.gender === "male") - Number(byId.get(a)?.gender === "male") || (a < b ? -1 : 1))[0] ?? myParents[0];
   const orderVia = (child: string) => (firstParent ? childrenOf(firstParent).find((pc) => pc.child === child)?.order : undefined);
-  siblingLinks.sort(
-    (a, b) =>
-      SIBLING_ORDER.indexOf(a.kind) - SIBLING_ORDER.indexOf(b.kind) ||
-      compareChildren({ order: orderVia(a.person._id), person: a.person }, { order: orderVia(b.person._id), person: b.person }),
-  );
+  const sortedSiblings = SIBLING_ORDER.flatMap(
+    (kind) => sortChildren(siblingLinks.filter((l) => l.kind === kind).map((l) => ({ link: l, person: l.person, order: orderVia(l.person._id) }))).sorted,
+  ).map((s) => s.link);
+  siblingLinks.splice(0, siblingLinks.length, ...sortedSiblings);
+  const self = byId.get(id);
+  const fullFamily = [...(self ? [self] : []), ...siblingLinks.filter((l) => l.kind === "full").map((l) => l.person)];
+  for (const l of siblingLinks) {
+    if (l.kind === "full") l.twin = fullFamily.some((o) => o._id !== l.person._id && sameBirthDay(o, l.person));
+  }
 
   let birthPosition: Relatives["birthPosition"];
   if (firstParent && myBirth.has(firstParent)) {
-    const born = orderedChildren(firstParent, true);
+    const born = orderedChildren(firstParent, true).sorted;
     const index = born.findIndex((c) => c.person._id === id);
     if (index >= 0) birthPosition = { index: index + 1, total: born.length };
   }
@@ -141,5 +221,6 @@ export function relativesOf(graph: Graph | undefined, id: string): Relatives {
     childLinks,
     siblingLinks,
     birthPosition,
+    childrenUncertain: mine.uncertain,
   };
 }

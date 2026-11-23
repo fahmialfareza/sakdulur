@@ -288,7 +288,9 @@
     "sortByBirth": "Urutkan menurut lahir",
     "sortByBirthHint": "Hapus urutan yang diatur manual dan urutkan anak menurut tanggal lahir",
     "childNumberTitle": "Anak ke-{n}",
-    "birthPosition": "Anak ke-{index} dari {total}"
+    "birthPosition": "Anak ke-{index} dari {total}",
+    "twin": "Kembar",
+    "orderUncertain": "Beberapa anak belum punya tanggal lahir atau lahir di hari yang sama (kembar), jadi urutannya belum pasti. Atur dengan ↑ ↓."
   },
   "sharing": {
     "intro": "Di pohon ini, editor dan pembaca hanya melihat dan mengubah cabang yang dibagikan kepada mereka. Membagikan seseorang juga membagikan pasangan dan orang tuanya.",
