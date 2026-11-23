@@ -1,7 +1,7 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from "elkjs/lib/elk.bundled.js";
 import type { Edge, Node } from "@xyflow/react";
 import type { Graph, GraphPerson, ParentKind, PartnerStatus } from "@/lib/api/types";
-import { compareChildren } from "@/lib/relatives";
+import { sortChildren } from "@/lib/relatives";
 
 // Genealogy layout on top of ELK's layered (Sugiyama) algorithm.
 //
@@ -144,7 +144,6 @@ export async function layoutGraph(
     const order = byFather.map((p) => linkOrder.get(`${p}>${child}`)).find((o) => o !== undefined);
     if (order !== undefined) orderOf.set(child, order);
   }
-  const childKey = (id: string) => ({ order: orderOf.get(id), person: personOf.get(id)! });
 
   // Partner groups: unions, plus co-parents who aren't partners (they still share a dot over their children).
   const couples = new Set<string>();
@@ -201,7 +200,12 @@ export async function layoutGraph(
       dotOf.set(uid, { dx: slot(gap) + PERSON_WIDTH + PARTNER_GAP / 2, drop: UNION_DROP + 18 });
     }
   }
-  const children = [...primaryParents.keys()].sort((a, b) => compareChildren(childKey(a), childKey(b)));
+  // Children family by family (same parents), each family in birth order (see sortChildren).
+  const families = new Map<string, string[]>();
+  for (const [child, parents] of primaryParents) families.set(parents.join("+"), [...(families.get(parents.join("+")) ?? []), child]);
+  const children = [...families.values()].flatMap(
+    (kids) => sortChildren(kids.map((id) => ({ id, order: orderOf.get(id), person: personOf.get(id)! }))).sorted.map((c) => c.id),
+  );
   // Blocks in the children's order first, so ELK's model-order tie-breaks already follow birth order.
   const blockRank = new Map<string, number>();
   for (const child of children) if (!blockRank.has(blockOf.get(child)!)) blockRank.set(blockOf.get(child)!, blockRank.size);

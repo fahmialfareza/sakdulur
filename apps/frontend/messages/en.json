@@ -288,7 +288,9 @@
     "sortByBirth": "Sort by birth",
     "sortByBirthHint": "Clear the order set by hand and sort the children by birth date",
     "childNumberTitle": "Child no. {n}",
-    "birthPosition": "Child {index} of {total}"
+    "birthPosition": "Child {index} of {total}",
+    "twin": "Twin",
+    "orderUncertain": "Some children have no birth date, or share one (twins), so their order is a guess. Use ↑ ↓ to set it."
   },
   "sharing": {
     "intro": "In this tree, editors and viewers only see and edit the branches shared with them. Sharing a person also shares their partner and parents.",

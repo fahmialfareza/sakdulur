@@ -28,6 +28,8 @@ type Row = {
   note?: string;
   /** Children: their place ("anak ke-"), and moving them up or down when the order can be edited. */
   position?: number;
+  /** Kembar: shown as a badge. */
+  twin?: boolean;
   move?: { up?: () => void; down?: () => void };
 };
 
@@ -158,6 +160,7 @@ export function RelativesPanel({
         role: "child",
         details: { kind: l.kind },
         badge: kindBadge(l.kind),
+        twin: l.twin,
         position: all.length > 1 ? i + 1 : undefined,
         move: canOrder ? { up: i > 0 ? () => move(i, i - 1) : undefined, down: i < all.length - 1 ? () => move(i, i + 1) : undefined } : undefined,
       })),
@@ -166,7 +169,7 @@ export function RelativesPanel({
     },
   ];
   const siblingKinds = [...new Set(rel.siblingLinks.map((s) => s.kind))] as SiblingKind[];
-  const siblingGroups = siblingKinds.map((k) => ({ label: tl(`siblingKinds.${k}`), rows: rel.siblingLinks.filter((s) => s.kind === k).map((s) => ({ person: s.person })) }));
+  const siblingGroups = siblingKinds.map((k) => ({ label: tl(`siblingKinds.${k}`), rows: rel.siblingLinks.filter((s) => s.kind === k).map((s) => ({ person: s.person, twin: s.twin })) }));
 
   const linked = new Set([personId, ...rel.parents, ...rel.partners, ...rel.children].map((p) => (typeof p === "string" ? p : p._id)));
   const candidates = (graph?.people ?? []).filter((p) => !linked.has(p._id)).sort((a, b) => a.name.localeCompare(b.name));
@@ -197,6 +200,11 @@ export function RelativesPanel({
                   {r.badge ? (
                     <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[11px] font-normal">
                       {r.badge}
+                    </Badge>
+                  ) : null}
+                  {r.twin ? (
+                    <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[11px] font-normal">
+                      {t("twin")}
                     </Badge>
                   ) : null}
                 </span>
@@ -258,6 +266,7 @@ export function RelativesPanel({
             </div>
           </div>
           {list(rows)}
+          {add === "child" && canOrder && rel.childrenUncertain ? <p className="text-xs text-muted-foreground">{t("orderUncertain")}</p> : null}
         </section>
       ))}
 
