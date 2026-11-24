@@ -41,6 +41,12 @@ export type LinkEdgeData = { people: string[]; kind: Exclude<ParentKind, "birth"
 
 const elk = new ELK();
 
+/**
+ * How the canvas orders siblings. "compact" (Rapi): birth order where it keeps families together, else ELK's
+ * compact layout. "strict" (Sesuai kelahiran): every family left to right in birth order, even if lines get longer.
+ */
+export type ChildOrder = "compact" | "strict";
+
 const unionId = (a: string, b: string) => (a < b ? `u:${a}:${b}` : `u:${b}:${a}`);
 
 /**
@@ -105,10 +111,126 @@ function chainOrder(members: string[], adj: Map<string, Set<string>>): string[] 
   return [...order, ...members.filter((id) => !seen.has(id)).sort()];
 }
 
+/**
+ * Strict birth order ("Sesuai kelahiran"): the order of every row, from the top down, so each family stands
+ * under its parents and left to right in birth order.
+ * - A child's place comes from their parents' place in the rows above and their birth rank; a couple standing
+ *   between two families (cousins who married) goes where both families meet.
+ * - A couple with no parents on the canvas (in-laws, or the top generation) stands next to the family their
+ *   child married into, on the side where that child stands; with no such link it keeps ELK's place.
+ * - Siblings are then put in birth order in the places they took, and two-person couples are turned so each
+ *   partner faces their own family. `blocks` is updated in place for that.
+ */
+function strictRows(
+  rowOrder: string[][],
+  g: {
+    blocks: Map<string, string[]>;
+    blockOf: Map<string, string>;
+    primaryParents: Map<string, string[]>;
+    families: Map<string, string[]>;
+    orderOf: Map<string, number>;
+    personOf: Map<string, GraphPerson>;
+  },
+): string[][] {
+  const { blocks, blockOf, primaryParents, families, orderOf, personOf } = g;
+  // Each child's birth rank within their family.
+  const rankOf = new Map<string, { rank: number; size: number; family: string }>();
+  for (const [family, kids] of families) {
+    const sorted = sortChildren(kids.map((id) => ({ id, order: orderOf.get(id), person: personOf.get(id)! }))).sorted;
+    sorted.forEach((c, i) => rankOf.set(c.id, { rank: i, size: sorted.length, family }));
+  }
+  const parentBlock = (child: string) => blockOf.get(primaryParents.get(child)![0])!;
+  const childrenOfBlock = new Map<string, string[]>();
+  for (const child of primaryParents.keys()) {
+    const pb = parentBlock(child);
+    if (pb !== blockOf.get(child)) childrenOfBlock.set(pb, [...(childrenOfBlock.get(pb) ?? []), child]);
+  }
+  // How many people stand below a block: the biggest family goes first among couples with no parents.
+  const below = new Map<string, number>();
+  const countBelow = (b: string, seen = new Set<string>()): number => {
+    if (below.has(b)) return below.get(b)!;
+    if (seen.has(b)) return 0;
+    seen.add(b);
+    const kids = [...new Set((childrenOfBlock.get(b) ?? []).map((c) => blockOf.get(c)!))];
+    const n = kids.reduce((sum, k) => sum + blocks.get(k)!.length + countBelow(k, seen), 0);
+    below.set(b, n);
+    return n;
+  };
+  const elkIndex = new Map<string, number>();
+  rowOrder.forEach((r) => r.forEach((b, i) => elkIndex.set(b, i)));
+  const place = new Map<string, number>(); // block -> start of its place in its row, from 0 to 1
+  const width = new Map<string, number>();
+  // A child's place from their parents' place above and their birth rank.
+  const childPlace = (m: string) => {
+    const r = rankOf.get(m);
+    const pb = r && parentBlock(m);
+    if (!r || !pb || !place.has(pb)) return undefined;
+    return place.get(pb)! + (width.get(pb)! * (r.rank + 1)) / (r.size + 1);
+  };
+  const out: string[][] = [];
+
+  for (const row of rowOrder) {
+    const value = new Map<string, number>();
+    for (const b of row) {
+      const v = blocks.get(b)!.map(childPlace).filter((x): x is number => x !== undefined);
+      if (v.length) value.set(b, v.reduce((a, c) => a + c, 0) / v.length);
+    }
+    const line = row.filter((b) => value.has(b)).sort((a, b) => value.get(a)! - value.get(b)! || elkIndex.get(a)! - elkIndex.get(b)!);
+    const familyOfBlock = (b: string) => blocks.get(b)!.map((m) => rankOf.get(m)?.family).find((f) => f);
+    // Couples with no parents here: beside the family their child married into, else where ELK had them.
+    const roots = row.filter((b) => !value.has(b)).sort((a, b) => countBelow(b) - countBelow(a) || elkIndex.get(a)! - elkIndex.get(b)!);
+    for (const r of roots) {
+      let at = -1;
+      for (const c of childrenOfBlock.get(r) ?? []) {
+        for (const m of blocks.get(blockOf.get(c)!)!.filter((x) => x !== c && rankOf.has(x))) {
+          const p = line.indexOf(parentBlock(m));
+          if (p < 0) continue;
+          // That parent's whole family of siblings stays together: go to its left or right end.
+          const fam = familyOfBlock(line[p]);
+          let lo = p;
+          let hi = p;
+          while (fam && lo > 0 && familyOfBlock(line[lo - 1]) === fam) lo--;
+          while (fam && hi < line.length - 1 && familyOfBlock(line[hi + 1]) === fam) hi++;
+          const { rank, size } = rankOf.get(m)!;
+          at = (rank + 0.5) / size < 0.5 ? lo : hi + 1;
+          break;
+        }
+        if (at >= 0) break;
+      }
+      if (at < 0) {
+        const left = line.filter((b) => elkIndex.get(b)! < elkIndex.get(r)!).sort((a, b) => elkIndex.get(b)! - elkIndex.get(a)!);
+        at = left.length ? line.indexOf(left[0]) + 1 : 0;
+      }
+      line.splice(at, 0, r);
+    }
+    // Siblings in birth order within the places they took.
+    for (const kids of families.values()) {
+      const own = (b: string) => blocks.get(b)!.find((m) => kids.includes(m));
+      const slots = line.flatMap((b, i) => (own(b) ? [i] : []));
+      if (slots.length < 2) continue;
+      const wanted = slots.map((i) => line[i]).sort((a, b) => rankOf.get(own(a)!)!.rank - rankOf.get(own(b)!)!.rank);
+      slots.forEach((slot, i) => (line[slot] = wanted[i]));
+    }
+    line.forEach((b, i) => {
+      place.set(b, i / line.length);
+      width.set(b, 1 / line.length);
+    });
+    out.push(line);
+  }
+
+  // Two-person couples: each partner on the side of their own parents.
+  for (const [b, members] of blocks) {
+    if (members.length !== 2) continue;
+    const [a, c] = members.map(childPlace);
+    if (a !== undefined && c !== undefined && a > c) blocks.set(b, [members[1], members[0]]);
+  }
+  return out;
+}
+
 export async function layoutGraph(
   graph: Graph,
   visible: Set<string>,
-  opts: { focusId?: string; selfId?: string },
+  opts: { focusId?: string; selfId?: string; order?: ChildOrder },
 ): Promise<{ nodes: FlowNode[]; edges: Edge[] }> {
   const people = graph.people.filter((p) => visible.has(p._id));
   const unionStatus = new Map(graph.unions.map((u) => [unionId(u.partners[0], u.partners[1]), u.status]));
@@ -186,20 +308,25 @@ export async function layoutGraph(
   // Where each couple's dot sits in its block. Partners side by side: between them. Not side by side (a third
   // spouse, past the second): lower, in the gap beside the partner with fewer partners, so it isn't read as the
   // dot of the person standing between them.
+  // Placed again if strict order turns a couple around.
   const dotOf = new Map<string, { dx: number; drop: number }>();
-  for (const uid of couples) {
-    const [, a, b] = uid.split(":");
-    const members = blocks.get(blockOf.get(a)!)!;
-    const ia = members.indexOf(a);
-    const ib = members.indexOf(b);
-    if (Math.abs(ia - ib) <= 1) {
-      dotOf.set(uid, { dx: (slot(ia) + slot(ib) + PERSON_WIDTH) / 2, drop: UNION_DROP });
-    } else {
-      const [near, far] = (adj.get(a)?.size ?? 0) <= (adj.get(b)?.size ?? 0) ? [ia, ib] : [ib, ia];
-      const gap = near < far ? near : near - 1; // the gap after slot `gap`
-      dotOf.set(uid, { dx: slot(gap) + PERSON_WIDTH + PARTNER_GAP / 2, drop: UNION_DROP + 18 });
+  const placeDots = () => {
+    dotOf.clear();
+    for (const uid of couples) {
+      const [, a, b] = uid.split(":");
+      const members = blocks.get(blockOf.get(a)!)!;
+      const ia = members.indexOf(a);
+      const ib = members.indexOf(b);
+      if (Math.abs(ia - ib) <= 1) {
+        dotOf.set(uid, { dx: (slot(ia) + slot(ib) + PERSON_WIDTH) / 2, drop: UNION_DROP });
+      } else {
+        const [near, far] = (adj.get(a)?.size ?? 0) <= (adj.get(b)?.size ?? 0) ? [ia, ib] : [ib, ia];
+        const gap = near < far ? near : near - 1; // the gap after slot `gap`
+        dotOf.set(uid, { dx: slot(gap) + PERSON_WIDTH + PARTNER_GAP / 2, drop: UNION_DROP + 18 });
+      }
     }
-  }
+  };
+  placeDots();
   // Children family by family (same parents), each family in birth order (see sortChildren).
   const families = new Map<string, string[]>();
   for (const [child, parents] of primaryParents) families.set(parents.join("+"), [...(families.get(parents.join("+")) ?? []), child]);
@@ -208,20 +335,22 @@ export async function layoutGraph(
   );
   // Blocks stay in the people's order: reordering them by children (to nudge birth order) let ELK pull families
   // apart in trees where cousins married into each other's families.
-  const elkNodes: ElkNode[] = [...blocks].map(([id, members]) => {
-    const bottom = members.map((m, i) => ({ id: `pb:${m}`, x: slot(i) + PERSON_WIDTH / 2 }));
-    for (const [uid, dot] of dotOf) if (blockOf.get(uid.split(":")[1]) === id) bottom.push({ id: `pb:${uid}`, x: dot.dx });
-    return {
-      id,
-      width: slot(members.length - 1) + PERSON_WIDTH,
-      height: PERSON_HEIGHT,
-      layoutOptions: { "elk.portConstraints": "FIXED_POS" },
-      ports: [
-        ...bottom.map((port) => ({ ...port, y: PERSON_HEIGHT, width: 1, height: 1, layoutOptions: { "elk.port.side": "SOUTH" } })),
-        ...members.map((m, i) => ({ id: `pt:${m}`, x: slot(i) + PERSON_WIDTH / 2, y: 0, width: 1, height: 1, layoutOptions: { "elk.port.side": "NORTH" } })),
-      ],
-    };
-  });
+  const elkNodesOf = (): ElkNode[] =>
+    [...blocks].map(([id, members]) => {
+      const bottom = members.map((m, i) => ({ id: `pb:${m}`, x: slot(i) + PERSON_WIDTH / 2 }));
+      for (const [uid, dot] of dotOf) if (blockOf.get(uid.split(":")[1]) === id) bottom.push({ id: `pb:${uid}`, x: dot.dx });
+      return {
+        id,
+        width: slot(members.length - 1) + PERSON_WIDTH,
+        height: PERSON_HEIGHT,
+        layoutOptions: { "elk.portConstraints": "FIXED_POS" },
+        ports: [
+          ...bottom.map((port) => ({ ...port, y: PERSON_HEIGHT, width: 1, height: 1, layoutOptions: { "elk.port.side": "SOUTH" } })),
+          ...members.map((m, i) => ({ id: `pt:${m}`, x: slot(i) + PERSON_WIDTH / 2, y: 0, width: 1, height: 1, layoutOptions: { "elk.port.side": "NORTH" } })),
+        ],
+      };
+    });
+  const elkNodes = elkNodesOf();
   const elkEdges: ElkExtendedEdge[] = [];
   const tied: [string, string][] = []; // parent block, child block
   for (const child of children) {
@@ -326,20 +455,31 @@ export async function layoutGraph(
   // Families who married into each other can make birth order and a compact tree pull against each other (the
   // eldest's in-laws stand at the far end). Birth order wins only while families stay as close to their parents
   // as in ELK's own layout; otherwise only the childless siblings are put in order, else ELK's layout stays.
+  const forcedOptions = {
+    ...layoutOptions,
+    "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
+    // The greedy switch pass swaps neighbours to save crossings even with a forced order; off here.
+    "elk.layered.crossingMinimization.greedySwitch.type": "OFF",
+  };
+  const inRowOrder = (rowsWanted: string[][], nodes: ElkNode[]) => {
+    const rank = new Map(rowsWanted.flat().map((id, i) => [id, i]));
+    return [...nodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+  };
+  // Strict: rows rebuilt from the top (see strictRows), couples turned to face their own families, and ELK
+  // places the blocks with that order kept, however long the lines get.
+  const strict = opts.order === "strict";
+  if (strict) {
+    const rowsWanted = strictRows(rowOrder, { blocks, blockOf, primaryParents, families, orderOf, personOf });
+    placeDots();
+    result = await run(inRowOrder(rowsWanted, elkNodesOf()), forcedOptions);
+  }
   const base = spread(result);
   const tried = new Set<string>();
-  for (const leavesOnly of [false, true]) {
+  for (const leavesOnly of strict ? [] : [false, true]) {
     const rowsWanted = reordered(leavesOnly);
     if (!rowsWanted || tried.has(JSON.stringify(rowsWanted))) continue;
     tried.add(JSON.stringify(rowsWanted));
-    const rank = new Map(rowsWanted.flat().map((id, i) => [id, i]));
-    const ordered = [...elkNodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
-    const forced = await run(ordered, {
-      ...layoutOptions,
-      "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
-      // The greedy switch pass swaps neighbours to save crossings even with a forced order; off here.
-      "elk.layered.crossingMinimization.greedySwitch.type": "OFF",
-    });
+    const forced = await run(inRowOrder(rowsWanted, elkNodes), forcedOptions);
     if (spread(forced) <= base * 1.1 + PERSON_WIDTH) {
       result = forced;
       break;
