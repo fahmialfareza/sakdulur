@@ -1,12 +1,8 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# Android Studio's per-machine project state (it writes the whole folder when it opens the project).
+/.idea/
 .DS_Store
 build
 /captures
@@ -19,3 +15,7 @@ keystore.properties
 /.tauri
 /tauri.settings.gradle
 *.jks
+
+# Written by Android Studio ("updateDaemonJvm"): pins the Gradle daemon to a JDK downloaded from foojay. Builds use
+# the JDK set in JAVA_HOME (Android Studio's JBR locally), so this stays local.
+/gradle/gradle-daemon-jvm.properties
