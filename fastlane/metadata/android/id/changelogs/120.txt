@@ -1,0 +1,5 @@
+• Anak di pohon dan daftar kerabat kini berurutan menurut kelahiran (anak ke-)
+• Atur urutan anak: ketuk "Atur urutan" lalu geser dengan tombol ↑ ↓ besar
+• Lencana Kembar, dan "Anak ke-2 dari 4" di detail seseorang
+• Tampilan "Sesuai kelahiran": setiap keluarga di pohon persis menurut urutan lahir
+• Keluarga yang saling berbesanan kini tetap rapi di pohon

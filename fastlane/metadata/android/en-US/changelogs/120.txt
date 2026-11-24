@@ -1,0 +1,5 @@
+• Children on the tree and in relatives are now in birth order (child no.)
+• Set the children's order: tap "Reorder" and move them with large ↑ ↓ buttons
+• Twin badge, and "Child 2 of 4" in a person's details
+• "By birth" view: every family on the tree exactly in birth order
+• Families who married into each other now stay neat on the tree
