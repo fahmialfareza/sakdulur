@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/page";
 import { PersonDrawer } from "@/components/person/person-drawer";
@@ -100,6 +100,7 @@ import { saveFile } from "@/lib/native";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { useOnlineRole } from "@/lib/offline";
 import {
+  type ChildOrder,
   type FlowNode,
   type LinkEdgeData,
   layoutGraph,
@@ -114,6 +115,22 @@ const TRANSPARENT_PIXEL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const DEPTHS = ["2", "4", "6", "all"] as const;
+const CHILD_ORDER_KEY = "sakdulur:child-order";
+const childOrderListeners = new Set<() => void>();
+const readChildOrder = (): ChildOrder => (localStorage.getItem(CHILD_ORDER_KEY) === "strict" ? "strict" : "compact");
+// This tab's changes, and other tabs' through the storage event.
+function subscribeChildOrder(onChange: () => void) {
+  childOrderListeners.add(onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    childOrderListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+function changeChildOrder(order: ChildOrder) {
+  localStorage.setItem(CHILD_ORDER_KEY, order);
+  childOrderListeners.forEach((l) => l());
+}
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2;
 // Above this size the canvas starts with a neighbourhood around the focus person instead of everyone.
@@ -206,6 +223,8 @@ function Canvas({ treeId }: { treeId: string }) {
   const openId = params.get("person");
   const tab = params.get("tab") ?? "overview";
   const [depth, setDepth] = useState<(typeof DEPTHS)[number] | null>(null);
+  // Sibling order on the canvas, remembered on this device: compact (Rapi) or strict birth order.
+  const childOrder = useSyncExternalStore(subscribeChildOrder, readChildOrder, () => "compact" as ChildOrder);
   const [layout, setLayout] = useState<{
     key: string;
     nodes: FlowNode[];
@@ -226,7 +245,7 @@ function Canvas({ treeId }: { treeId: string }) {
   const role = useOnlineRole(graph?.tree.role ?? "viewer");
   const effectiveDepth = exportRequested && !branch ? "all" : (depth ?? (graph && graph.people.length > FULL_TREE_LIMIT ? "4" : "all"));
   const branchKey = branch ? `${branch.scope}:${branch.from}:${branch.steps}` : "";
-  const layoutKey = `${dataUpdatedAt}|${focusId ?? ""}|${effectiveDepth}|${branchKey}`;
+  const layoutKey = `${dataUpdatedAt}|${focusId ?? ""}|${effectiveDepth}|${branchKey}|${childOrder}`;
   const { nodes } = layout;
   // Foster, step and other non-primary parent lines stay hidden (they cut across the tree) except for the
   // person in focus or open in the drawer; their cards carry a small mark instead.
@@ -273,13 +292,13 @@ function Canvas({ treeId }: { treeId: string }) {
           focusId,
           effectiveDepth === "all" ? Infinity : Number(effectiveDepth),
         );
-    layoutGraph(graph, visible, { focusId }).then((res) => {
+    layoutGraph(graph, visible, { focusId, order: childOrder }).then((res) => {
       if (!cancelled) setLayout({ key: layoutKey, ...res });
     });
     return () => {
       cancelled = true;
     };
-  }, [graph, focusId, effectiveDepth, layoutKey, branch]);
+  }, [graph, focusId, effectiveDepth, layoutKey, branch, childOrder]);
 
   // Center on the focus person after each layout, otherwise fit everything.
   useEffect(() => {
@@ -566,6 +585,15 @@ function Canvas({ treeId }: { treeId: string }) {
                       : t("depthN", { n: Number(d) })}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={childOrder} onValueChange={(v) => changeChildOrder(v as ChildOrder)}>
+              <SelectTrigger className="h-8 w-auto" aria-label={t("childOrder")} title={t("childOrderHint")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="compact">{t("childOrderCompact")}</SelectItem>
+                <SelectItem value="strict">{t("childOrderStrict")}</SelectItem>
               </SelectContent>
             </Select>
             {families && families.filter((f) => f.person).length > 1 ? (
