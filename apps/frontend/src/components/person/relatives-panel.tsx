@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownUp, ChevronDown, ChevronUp, Heart, Link2, Pencil, Plus, UserRoundPlus, Users, X } from "lucide-react";
+import { ArrowDownUp, Check, ChevronDown, ChevronUp, Heart, ListOrdered, Link2, Pencil, Plus, UserRoundPlus, Users, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -63,6 +63,10 @@ export function RelativesPanel({
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<LinkEdit | null>(null);
   const [ordering, setOrdering] = useState(false);
+  // Reorder mode: big ↑ ↓ buttons in place of edit and unlink, so they are easy to tap and never mistaken for ✕.
+  // Tied to the person, so opening someone else's drawer starts outside reorder mode.
+  const [reorderingFor, setReorderingFor] = useState<string | null>(null);
+  const reordering = reorderingFor === personId;
 
   // Children's order is stored on both sides of each link, so every child must be editable too.
   const canOrder = canEdit && rel.childLinks.length > 1 && rel.childLinks.every((l) => l.person.canEdit);
@@ -162,7 +166,7 @@ export function RelativesPanel({
         badge: kindBadge(l.kind),
         twin: l.twin,
         position: all.length > 1 ? i + 1 : undefined,
-        move: canOrder ? { up: i > 0 ? () => move(i, i - 1) : undefined, down: i < all.length - 1 ? () => move(i, i + 1) : undefined } : undefined,
+        move: canOrder && reordering ? { up: i > 0 ? () => move(i, i - 1) : undefined, down: i < all.length - 1 ? () => move(i, i + 1) : undefined } : undefined,
       })),
       add: "child",
       Icon: UserRoundPlus,
@@ -214,16 +218,15 @@ export function RelativesPanel({
               </span>
             </button>
             {r.move ? (
-              <span className="flex shrink-0 flex-col">
-                <Button variant="ghost" size="icon" className="h-4 w-8" disabled={!r.move.up || ordering} onClick={r.move.up} aria-label={t("moveUp", { name: r.person.name })}>
-                  <ChevronUp className="size-4" aria-hidden />
+              <span className="flex shrink-0 gap-1">
+                <Button variant="outline" size="icon" className="size-11" disabled={!r.move.up || ordering} onClick={r.move.up} aria-label={t("moveUp", { name: r.person.name })}>
+                  <ChevronUp className="size-5" aria-hidden />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-4 w-8" disabled={!r.move.down || ordering} onClick={r.move.down} aria-label={t("moveDown", { name: r.person.name })}>
-                  <ChevronDown className="size-4" aria-hidden />
+                <Button variant="outline" size="icon" className="size-11" disabled={!r.move.down || ordering} onClick={r.move.down} aria-label={t("moveDown", { name: r.person.name })}>
+                  <ChevronDown className="size-5" aria-hidden />
                 </Button>
               </span>
-            ) : null}
-            {canEdit && r.role && r.person.canEdit ? (
+            ) : canEdit && r.role && r.person.canEdit ? (
               <>
                 <Button
                   variant="ghost"
@@ -253,12 +256,17 @@ export function RelativesPanel({
               <Icon className="size-4 text-muted-foreground" aria-hidden /> {label}
             </h3>
             <div className="flex items-center">
-              {add === "child" && canOrder && orderSetByHand ? (
+              {add === "child" && canOrder && reordering && orderSetByHand ? (
                 <Button variant="ghost" size="sm" disabled={ordering} onClick={() => saveOrder(null)} title={t("sortByBirthHint")}>
                   <ArrowDownUp className="size-4" aria-hidden /> {t("sortByBirth")}
                 </Button>
               ) : null}
-              {canEdit && add ? (
+              {add === "child" && canOrder ? (
+                <Button variant={reordering ? "default" : "ghost"} size="sm" onClick={() => setReorderingFor(reordering ? null : personId)} aria-pressed={reordering}>
+                  {reordering ? <Check className="size-4" aria-hidden /> : <ListOrdered className="size-4" aria-hidden />} {t(reordering ? "reorderDone" : "reorder")}
+                </Button>
+              ) : null}
+              {canEdit && add && !(add === "child" && reordering) ? (
                 <Button variant="ghost" size="sm" onClick={() => onAddRelative(personId, add)}>
                   <Plus className="size-4" aria-hidden /> {t("add")}
                 </Button>

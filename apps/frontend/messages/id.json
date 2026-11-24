@@ -290,7 +290,9 @@
     "childNumberTitle": "Anak ke-{n}",
     "birthPosition": "Anak ke-{index} dari {total}",
     "twin": "Kembar",
-    "orderUncertain": "Beberapa anak belum punya tanggal lahir atau lahir di hari yang sama (kembar), jadi urutannya belum pasti. Atur dengan ↑ ↓."
+    "orderUncertain": "Beberapa anak belum punya tanggal lahir atau lahir di hari yang sama (kembar), jadi urutannya belum pasti. Ketuk Atur urutan untuk mengaturnya.",
+    "reorder": "Atur urutan",
+    "reorderDone": "Selesai"
   },
   "sharing": {
     "intro": "Di pohon ini, editor dan pembaca hanya melihat dan mengubah cabang yang dibagikan kepada mereka. Membagikan seseorang juga membagikan pasangan dan orang tuanya.",
