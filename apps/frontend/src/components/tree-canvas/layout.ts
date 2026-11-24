@@ -206,11 +206,9 @@ export async function layoutGraph(
   const children = [...families.values()].flatMap(
     (kids) => sortChildren(kids.map((id) => ({ id, order: orderOf.get(id), person: personOf.get(id)! }))).sorted.map((c) => c.id),
   );
-  // Blocks in the children's order first, so ELK's model-order tie-breaks already follow birth order.
-  const blockRank = new Map<string, number>();
-  for (const child of children) if (!blockRank.has(blockOf.get(child)!)) blockRank.set(blockOf.get(child)!, blockRank.size);
-  const blockList = [...blocks].sort(([a], [b]) => (blockRank.get(a) ?? Infinity) - (blockRank.get(b) ?? Infinity));
-  const elkNodes: ElkNode[] = blockList.map(([id, members]) => {
+  // Blocks stay in the people's order: reordering them by children (to nudge birth order) let ELK pull families
+  // apart in trees where cousins married into each other's families.
+  const elkNodes: ElkNode[] = [...blocks].map(([id, members]) => {
     const bottom = members.map((m, i) => ({ id: `pb:${m}`, x: slot(i) + PERSON_WIDTH / 2 }));
     for (const [uid, dot] of dotOf) if (blockOf.get(uid.split(":")[1]) === id) bottom.push({ id: `pb:${uid}`, x: dot.dx });
     return {
@@ -262,13 +260,31 @@ export async function layoutGraph(
     "elk.layered.crossingMinimization.forceNodeModelOrder": "false",
     "elk.edgeRouting": "ORTHOGONAL",
   };
+  // How far children stand from their parents' dot (or parent), summed: the measure that keeps a reordered layout
+  // from scattering families.
+  const spread = (laid: ElkNode) => {
+    const x = new Map((laid.children ?? []).map((b) => [b.id, b.x ?? 0]));
+    let total = 0;
+    for (const child of children) {
+      const parents = primaryParents.get(child)!;
+      const cb = blockOf.get(child)!;
+      const pb = blockOf.get(parents[0])!;
+      if (cb === pb || !x.has(cb) || !x.has(pb)) continue;
+      const uid = parents.length === 2 ? unionId(parents[0], parents[1]) : "";
+      const from = uid && dotOf.has(uid) ? x.get(pb)! + dotOf.get(uid)!.dx : x.get(pb)! + slot(blocks.get(pb)!.indexOf(parents[0])) + PERSON_WIDTH / 2;
+      total += Math.abs(x.get(cb)! + slot(blocks.get(cb)!.indexOf(child)) + PERSON_WIDTH / 2 - from);
+    }
+    return total;
+  };
   // ELK fills in the graph it is given, so each run gets its own copy.
   const run = (nodes: ElkNode[], options: Record<string, string>) =>
     elk.layout({ id: "root", layoutOptions: options, children: structuredClone(nodes), edges: structuredClone(elkEdges) });
   let result = await run(elkNodes, layoutOptions);
 
-  // Siblings out of birth order: put them back in order in the places they took, keep every other block where
-  // ELK put it, and lay out again with that order forced.
+  // Siblings out of birth order: when they stand together (no other family's block between them), put them back
+  // in order in the places they took, keep every other block where ELK put it, and lay out again with that order
+  // forced. Siblings split up by another family are left where ELK put them: moving one across that family pulls
+  // whole generations apart.
   const siblingBlocks = new Map<string, string[]>(); // parents -> their children's blocks, in birth order
   for (const child of children) {
     const parents = primaryParents.get(child)!;
@@ -285,27 +301,49 @@ export async function layoutGraph(
     rows.set(y, [...(rows.get(y) ?? []), b]);
   }
   const rowOrder = [...rows].sort(([a], [b]) => a - b).map(([, r]) => r.sort((a, b) => (a.x ?? 0) - (b.x ?? 0)).map((b) => b.id));
-  let moved = false;
-  for (const wanted of siblingBlocks.values()) {
-    if (wanted.length < 2) continue;
-    for (const row of rowOrder) {
-      const slots = row.flatMap((id, i) => (wanted.includes(id) ? [i] : []));
-      if (slots.length < 2) continue;
-      const inOrder = wanted.filter((id) => row.includes(id));
-      if (slots.every((slot, i) => row[slot] === inOrder[i])) continue;
-      slots.forEach((slot, i) => (row[slot] = inOrder[i]));
-      moved = true;
+  // Blocks with children of their own on the canvas: moving one moves a whole family below it.
+  const hasFamily = new Set(children.map((c) => blockOf.get(primaryParents.get(c)![0])!));
+  // The rows with siblings put in birth order where they stand together; `leavesOnly` limits it to siblings
+  // without children on the canvas, which can always move. Null when nothing changes.
+  const reordered = (leavesOnly: boolean) => {
+    const out = rowOrder.map((r) => [...r]);
+    let moved = false;
+    for (const wanted of siblingBlocks.values()) {
+      if (wanted.length < 2) continue;
+      for (const row of out) {
+        const slots = row.flatMap((id, i) => (wanted.includes(id) ? [i] : []));
+        if (slots.length < 2) continue;
+        if (slots[slots.length - 1] - slots[0] !== slots.length - 1) continue; // split up by another family
+        const inOrder = wanted.filter((id) => row.includes(id));
+        if (leavesOnly && inOrder.some((id) => hasFamily.has(id))) continue;
+        if (slots.every((slot, i) => row[slot] === inOrder[i])) continue;
+        slots.forEach((slot, i) => (row[slot] = inOrder[i]));
+        moved = true;
+      }
     }
-  }
-  if (moved) {
-    const rank = new Map(rowOrder.flat().map((id, i) => [id, i]));
+    return moved ? out : null;
+  };
+  // Families who married into each other can make birth order and a compact tree pull against each other (the
+  // eldest's in-laws stand at the far end). Birth order wins only while families stay as close to their parents
+  // as in ELK's own layout; otherwise only the childless siblings are put in order, else ELK's layout stays.
+  const base = spread(result);
+  const tried = new Set<string>();
+  for (const leavesOnly of [false, true]) {
+    const rowsWanted = reordered(leavesOnly);
+    if (!rowsWanted || tried.has(JSON.stringify(rowsWanted))) continue;
+    tried.add(JSON.stringify(rowsWanted));
+    const rank = new Map(rowsWanted.flat().map((id, i) => [id, i]));
     const ordered = [...elkNodes].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
-    result = await run(ordered, {
+    const forced = await run(ordered, {
       ...layoutOptions,
       "elk.layered.crossingMinimization.forceNodeModelOrder": "true",
       // The greedy switch pass swaps neighbours to save crossings even with a forced order; off here.
       "elk.layered.crossingMinimization.greedySwitch.type": "OFF",
     });
+    if (spread(forced) <= base * 1.1 + PERSON_WIDTH) {
+      result = forced;
+      break;
+    }
   }
 
   // People inside their block, in chain order.
