@@ -40,9 +40,14 @@ func (a aiAttempt) String() string { return a.Provider.Name + "/" + a.Model }
 
 const (
 	aiCooldownRateLimit   = time.Minute
-	aiCooldownServerError = 30 * time.Second
-	aiCooldownUnknown     = 6 * time.Hour // model not found / no access: probably a config mistake
+	aiCooldownServerError = 2 * time.Minute // Gemini's "high demand" 503s last minutes, not seconds
+	aiCooldownUnknown     = 6 * time.Hour   // model not found / no access: probably a config mistake
 	aiCooldownMax         = 24 * time.Hour
+
+	// aiProviderOverloadLimit is how many models of one provider may fail as overloaded (503, 429, timeout) in
+	// a row before its other models are skipped for this question: an overload hits all of a provider's models
+	// at once, and trying each in turn cost up to 35s before the next provider got a chance.
+	aiProviderOverloadLimit = 2
 )
 
 func envList(key, def string) []string {
@@ -81,7 +86,7 @@ func aiProviders() []*aiProvider {
 		out = append(out, &aiProvider{Name: name, APIKey: key, BaseURL: strings.TrimRight(envOr(baseEnv, baseDef), "/"), Models: models})
 	}
 	add("gemini", "GEMINI_API_KEY", "AI_GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai",
-		"AI_GEMINI_MODELS", "gemini-3.8-flash,gemini-3.5-flash-lite")
+		"AI_GEMINI_MODELS", "gemini-3.8-flash,gemini-3.6-flash,gemini-3.5-flash-lite")
 	add("groq", "GROQ_API_KEY", "AI_GROQ_BASE_URL", "https://api.groq.com/openai/v1",
 		"AI_GROQ_MODELS", "openai/gpt-oss-120b,qwen/qwen3.8-27b")
 	return out
@@ -105,7 +110,7 @@ func aiCallTimeout() time.Duration {
 	if d, err := time.ParseDuration(os.Getenv("AI_PROVIDER_TIMEOUT")); err == nil && d > 0 {
 		return d
 	}
-	return 25 * time.Second
+	return 12 * time.Second // healthy rounds take up to ~5s; a stuck call must not eat the 55s question budget
 }
 
 // ---- Chat Completions wire format (only what the assistant uses) ----
@@ -178,6 +183,8 @@ var (
 	aiHTTPClient    = &http.Client{Transport: newrelic.NewRoundTripper(nil)}
 	geminiRetryHint = regexp.MustCompile(`"retryDelay"\s*:\s*"(\d+)(?:\.\d+)?s"`)
 	errAIEmpty      = errors.New("empty response from AI provider")
+	// A 400 about the model's settings rather than this request's content.
+	aiUnsupportedSetting = regexp.MustCompile(`(?i)(thinking level|reasoning[_ ]effort)[^"]*not supported`)
 )
 
 func chatComplete(ctx context.Context, a aiAttempt, req chatRequest) (*chatResponse, error) {
@@ -233,6 +240,8 @@ func chatComplete(ctx context.Context, a aiAttempt, req chatRequest) (*chatRespo
 func aiReasoningEffort(a aiAttempt) string {
 	model := strings.ToLower(a.Model)
 	switch {
+	case a.Provider.Name == "gemini" && strings.HasPrefix(model, "gemini-3.8"):
+		return "low" // rejects "minimal" with a 400
 	case a.Provider.Name == "gemini" && (strings.HasPrefix(model, "gemini-") || strings.HasPrefix(model, "gemma-")):
 		return "minimal" // Gemma rejects "none"
 	case a.Provider.Name == "groq" && strings.Contains(model, "gpt-oss"):
@@ -270,6 +279,16 @@ func setAICooldown(ctx context.Context, a aiAttempt, d time.Duration) {
 	aiLocalCooldowns.Store(a.String(), time.Now().Add(d))
 }
 
+// aiOverloaded reports whether err means the provider is out of capacity, as opposed to the model being
+// misconfigured or the request being bad.
+func aiOverloaded(err error) bool {
+	var he *aiHTTPError
+	if errors.As(err, &he) {
+		return he.Status == http.StatusTooManyRequests || he.Status == http.StatusServiceUnavailable
+	}
+	return errors.Is(err, context.DeadlineExceeded)
+}
+
 // aiFailureCooldown decides how long to skip a model after err (0 = try it again next time).
 func aiFailureCooldown(err error) time.Duration {
 	var he *aiHTTPError
@@ -281,6 +300,10 @@ func aiFailureCooldown(err error) time.Duration {
 			return aiCooldownUnknown
 		case he.Status >= 500:
 			return aiCooldownServerError
+		case he.Status == http.StatusBadRequest && aiUnsupportedSetting.MatchString(he.Body):
+			// e.g. "Thinking level MINIMAL is not supported for this model": every request to this model
+			// fails the same way, so skip it like an unknown model instead of failing on every question.
+			return aiCooldownUnknown
 		}
 		return 0 // 400 & co: this request, not the model
 	}
@@ -305,9 +328,13 @@ func runWithFallback[T any](ctx context.Context, fn func(ctx context.Context, a 
 	}
 	attempts := aiAttempts()
 	tried := 0
+	overloaded := map[string]int{} // provider -> its models that failed as overloaded in a row
 	for _, a := range attempts {
 		if ctx.Err() != nil {
 			break
+		}
+		if overloaded[a.Provider.Name] >= aiProviderOverloadLimit {
+			continue
 		}
 		if aiCoolingDown(ctx, a) {
 			continue
@@ -327,6 +354,11 @@ func runWithFallback[T any](ctx context.Context, fn func(ctx context.Context, a 
 			setAICooldown(ctx, a, d)
 		}
 		slog.WarnContext(ctx, "ai attempt failed", "model", a.String(), "ms", time.Since(start).Milliseconds(), "error", truncate(err.Error(), 300))
+		if !aiOverloaded(err) {
+			overloaded[a.Provider.Name] = 0
+		} else if overloaded[a.Provider.Name]++; overloaded[a.Provider.Name] == aiProviderOverloadLimit {
+			slog.WarnContext(ctx, "ai provider overloaded, skipping its other models", "provider", a.Provider.Name)
+		}
 	}
 	if len(attempts) == 0 {
 		return zero, aiAttempt{}, errAIUnavailable

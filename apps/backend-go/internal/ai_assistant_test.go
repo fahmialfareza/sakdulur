@@ -271,6 +271,51 @@ func TestAssistantFallbackAndToolLoop(t *testing.T) {
 	}
 }
 
+func TestAssistantSkipsOverloadedProvider(t *testing.T) {
+	gemini, groq := &fakeProvider{fail: 503}, &fakeProvider{}
+	useFakeProviders(t, gemini, groq)
+	t.Setenv("AI_GEMINI_MODELS", "gem-a,gem-b,gem-c,gem-d")
+	ix := testAIIndex()
+	_, attempt, err := runWithFallback(context.Background(), func(ctx context.Context, a aiAttempt) (*assistantResult, error) {
+		return askAssistant(ctx, a, ix, nil, "system", []assistantTurn{{Role: "user", Content: "Bapaknya Ayu siapa?"}})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if attempt.String() != "groq/groq-a" {
+		t.Errorf("answered by %s", attempt)
+	}
+	if n := gemini.hits.Load(); n != aiProviderOverloadLimit {
+		t.Errorf("overloaded Gemini was called %d times, want %d", n, aiProviderOverloadLimit)
+	}
+}
+
+func TestAIModelSettings(t *testing.T) {
+	gemini, groq := &aiProvider{Name: "gemini"}, &aiProvider{Name: "groq"}
+	for model, want := range map[string]string{
+		"gemini-3.8-flash": "low", "gemini-3.6-flash": "minimal", "gemma-4-31b-it": "minimal",
+	} {
+		if got := aiReasoningEffort(aiAttempt{Provider: gemini, Model: model}); got != want {
+			t.Errorf("%s: effort %q, want %q", model, got, want)
+		}
+	}
+	if got := aiReasoningEffort(aiAttempt{Provider: groq, Model: "openai/gpt-oss-120b"}); got != "low" {
+		t.Errorf("gpt-oss effort %q", got)
+	}
+
+	// A model that rejects a setting fails every question the same way: skip it for long.
+	unsupported := &aiHTTPError{Status: 400, Body: `{"error":{"code":400,"message":"Thinking level MINIMAL is not supported for this model. Please retry with other thinking level."}}`}
+	if aiFailureCooldown(unsupported) != aiCooldownUnknown {
+		t.Error("unsupported thinking level should cool the model down")
+	}
+	if aiFailureCooldown(&aiHTTPError{Status: 400, Body: `{"error":{"message":"invalid tool call"}}`}) != 0 {
+		t.Error("a plain 400 is about the request, not the model")
+	}
+	if !aiOverloaded(&aiHTTPError{Status: 503}) || !aiOverloaded(context.DeadlineExceeded) || aiOverloaded(&aiHTTPError{Status: 404}) {
+		t.Error("overload classification")
+	}
+}
+
 func TestAssistantEndpoint(t *testing.T) {
 	resetDB(t)
 	useFakeProviders(t, &fakeProvider{}, &fakeProvider{})
