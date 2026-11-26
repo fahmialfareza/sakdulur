@@ -71,8 +71,17 @@ func NewRouter(nrApp *newrelic.Application) (*gin.Engine, error) {
 	}
 	r.Use(cors.New(config))
 
-	// New Relic middleware — must be registered before PanicRecovery so txn is in context
+	// New Relic middleware — must be registered before PanicRecovery so txn is in context.
+	// nrgin only stores the transaction on the gin context; handlers and stores read it with
+	// newrelic.FromContext(c.Request.Context()), so it is copied into the request context too.
+	// Without this, NoticeError, panic reports and custom segments were silently dropped.
 	r.Use(nrgin.Middleware(nrApp))
+	r.Use(func(c *gin.Context) {
+		if txn := nrgin.Transaction(c); txn != nil {
+			c.Request = newrelic.RequestWithTransactionContext(c.Request, txn)
+		}
+		c.Next()
+	})
 
 	// Panic recovery — reports panics to New Relic and returns 500
 	r.Use(PanicRecoveryMiddleware())
