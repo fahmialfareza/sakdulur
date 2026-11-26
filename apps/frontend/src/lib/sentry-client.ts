@@ -1,4 +1,5 @@
 import { CLIENT_COOKIE, isAppClient } from "@/lib/app-client";
+import { isReloading, isStaleChunkError } from "@/lib/reload-once";
 import { SENTRY_DATA_COLLECTION, SENTRY_DSN, SENTRY_INITIAL_SCOPE, SENTRY_ENVIRONMENT, SENTRY_TRACES_SAMPLE_RATE, SENTRY_TUNNEL } from "@/lib/sentry";
 
 type SentryModule = typeof import("@sentry/nextjs");
@@ -28,6 +29,8 @@ export function loadSentry(): Promise<SentryModule | null> {
       // The plan has 50 replays a month, shared with the apps (src/sentry.ts in apps/native): 1 in 4 error sessions.
       replaysOnErrorSampleRate: 0.25,
       integrations: [Sentry.consoleLoggingIntegration({ levels: ["warn", "error"] })],
+      // A stale chunk after a deploy is fixed by the reload already under way (reload-once.ts).
+      beforeSend: (event, hint) => (isReloading() && isStaleChunkError(hint.originalException) ? null : event),
     });
     // Versions of the desktop and mobile apps that show this site mark themselves with the client cookie.
     const client = document.cookie.match(new RegExp(`(?:^|;\\s*)${CLIENT_COOKIE}=([^;]+)`))?.[1];

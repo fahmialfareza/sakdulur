@@ -7,24 +7,10 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useOffline } from "@/lib/offline";
+import { reloadOnce } from "@/lib/reload-once";
 
-// The page couldn't be loaded, most often because a new version went live while it was open (its navigation
-// requests then fail until a reload) or the server briefly answered 5xx. Reload once by ourselves; the
-// timestamp keeps it from looping when the error is real.
-const AUTO_RELOAD_KEY = "ft-error-reload";
-const AUTO_RELOAD_GAP_MS = 30_000;
-
-function reloadOnce(): boolean {
-  try {
-    const last = Number(sessionStorage.getItem(AUTO_RELOAD_KEY) || 0);
-    if (Date.now() - last < AUTO_RELOAD_GAP_MS) return false;
-    sessionStorage.setItem(AUTO_RELOAD_KEY, String(Date.now()));
-  } catch {
-    return false;
-  }
-  window.location.reload();
-  return true;
-}
+// The page couldn't be loaded, most often because a new version went live while it was open or the server
+// briefly answered 5xx: reloadOnce() retries by itself, without looping when the error is real.
 
 export default function ErrorPage({ error }: { error: Error & { digest?: string }; reset: () => void }) {
   const t = useTranslations("errors");
