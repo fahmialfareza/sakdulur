@@ -25,7 +25,8 @@ export function PersonSearch({ treeId, compact }: { treeId: string; compact?: bo
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
+      // Chromium fires keydown without a key when autofill fills an input.
+      if (e.key?.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setOpen((o) => !o);
       }
