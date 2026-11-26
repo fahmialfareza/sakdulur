@@ -10,6 +10,17 @@ const DSN = (__WEB__ ? __WEB_SENTRY_DSN__ : import.meta.env.VITE_SENTRY_DSN) || 
 
 export function initSentry() {
   if (!DSN) return;
+  // Sentry's web-vitals calls Array.prototype.at, missing in old Android WebViews (Chrome < 92; minSdk 24).
+  if (!Array.prototype.at) {
+    Object.defineProperty(Array.prototype, "at", {
+      configurable: true,
+      writable: true,
+      value(this: unknown[], i: number) {
+        const n = Math.trunc(i) || 0;
+        return this[n < 0 ? this.length + n : n];
+      },
+    });
+  }
   Sentry.init({
     dsn: DSN,
     release: __APP_RELEASE__,
